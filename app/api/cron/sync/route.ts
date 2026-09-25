@@ -60,6 +60,8 @@ export async function GET(request: Request) {
         synced: summary.synced,
         new: summary.new,
         stateChanges: summary.stateChanges,
+        corrected: summary.corrected,
+        inconsistencies: summary.inconsistencies,
       },
       {
         headers: {

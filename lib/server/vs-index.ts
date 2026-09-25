@@ -41,6 +41,205 @@ const POST_WRITE_REFRESH_ATTEMPTS = 5;
 const POST_WRITE_REFRESH_DELAY_MS = 1_500;
 const BACKGROUND_REFRESH_COOLDOWN_MS = 30_000;
 
+// ── Chain-state reconciliation and validation ───────────────────────────────
+
+/**
+ * Compare indexed claim state with chain state to detect inconsistencies.
+ *
+ * This is the contract-first accounting check: if the indexed state differs
+ * from chain state, the index is wrong and must be corrected. Common drift
+ * sources include RPC failures during sync, manual DB edits, or stale cache
+ * reads that were persisted.
+ */
+export interface ClaimDiscrepancy {
+  claimId: number;
+  field: string;
+  indexed: unknown;
+  chain: unknown;
+  severity: "critical" | "warning";
+}
+
+export function compareClaimStates(
+  indexed: ClaimRow,
+  chain: ClaimData
+): ClaimDiscrepancy[] {
+  const discrepancies: ClaimDiscrepancy[] = [];
+  
+  // Critical fields that must match exactly
+  if (indexed.state !== chain.state) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "state",
+      indexed: indexed.state,
+      chain: chain.state,
+      severity: "critical"
+    });
+  }
+  
+  if (indexed.creator !== chain.creator) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "creator",
+      indexed: indexed.creator,
+      chain: chain.creator,
+      severity: "critical"
+    });
+  }
+  
+  // Financial fields that must match exactly (accounting correctness)
+  if (Math.abs(indexed.creator_stake - chain.creator_stake) > 0.001) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "creator_stake",
+      indexed: indexed.creator_stake,
+      chain: chain.creator_stake,
+      severity: "critical"
+    });
+  }
+  
+  if (Math.abs(indexed.total_challenger_stake - chain.total_challenger_stake) > 0.001) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "total_challenger_stake",
+      indexed: indexed.total_challenger_stake,
+      chain: chain.total_challenger_stake,
+      severity: "critical"
+    });
+  }
+  
+  if (indexed.challenger_count !== chain.challenger_count) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "challenger_count",
+      indexed: indexed.challenger_count,
+      chain: chain.challenger_count,
+      severity: "critical"
+    });
+  }
+  
+  // Warning-level fields (non-critical but indicate drift)
+  if (indexed.category !== chain.category) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "category",
+      indexed: indexed.category,
+      chain: chain.category,
+      severity: "warning"
+    });
+  }
+  
+  if (indexed.market_type !== chain.market_type) {
+    discrepancies.push({
+      claimId: indexed.id,
+      field: "market_type",
+      indexed: indexed.market_type,
+      chain: chain.market_type,
+      severity: "warning"
+    });
+  }
+  
+  return discrepancies;
+}
+
+/**
+ * Validate Stellar addresses for correctness.
+ *
+ * Case-sensitive base32 validation ensures we haven't corrupted addresses
+ * through lowercase conversions or other transformations.
+ */
+export function isValidStellarAddress(address: string): boolean {
+  // Stellar addresses are either G... (account) or C... (contract)
+  // They are case-sensitive base32 and should be 56 characters
+  if (typeof address !== "string") return false;
+  if (address.length !== 56) return false;
+  if (!/^[GC]/.test(address)) return false;
+  
+  // Base32 character set check
+  const base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  for (const char of address) {
+    if (!base32Chars.includes(char)) return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validate money fields for accounting correctness.
+ *
+ * Ensures stakes and payouts are non-negative finite numbers with reasonable
+ * precision (6 decimal places for USDC).
+ */
+export function validateMoneyField(value: number, fieldName: string): boolean {
+  if (typeof value !== "number") return false;
+  if (!Number.isFinite(value)) return false;
+  if (value < 0) return false;
+  
+  // Check for reasonable precision (USDC has 6 decimals)
+  const rounded = Math.round(value * 1_000_000) / 1_000_000;
+  if (Math.abs(value - rounded) > 0.000001) {
+    console.warn(`[vs-index] Money field ${fieldName} has excessive precision: ${value}`);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Comprehensive validation of a claim's state against accounting rules.
+ */
+export function validateClaimAccounting(claim: ClaimData): string[] {
+  const errors: string[] = [];
+  
+  // Validate addresses
+  if (!isValidStellarAddress(claim.creator)) {
+    errors.push(`Invalid creator address: ${claim.creator}`);
+  }
+  
+  if (claim.challenger_addresses) {
+    for (const addr of claim.challenger_addresses) {
+      if (!isValidStellarAddress(addr)) {
+        errors.push(`Invalid challenger address: ${addr}`);
+      }
+    }
+  }
+  
+  // Validate money fields
+  if (!validateMoneyField(claim.creator_stake, "creator_stake")) {
+    errors.push(`Invalid creator_stake: ${claim.creator_stake}`);
+  }
+  
+  if (!validateMoneyField(claim.total_challenger_stake, "total_challenger_stake")) {
+    errors.push(`Invalid total_challenger_stake: ${claim.total_challenger_stake}`);
+  }
+  
+  if (!validateMoneyField(claim.reserved_creator_liability, "reserved_creator_liability")) {
+    errors.push(`Invalid reserved_creator_liability: ${claim.reserved_creator_liability}`);
+  }
+  
+  // Validate stake consistency
+  const availableLiability = Math.max(0, claim.creator_stake - claim.reserved_creator_liability);
+  if (availableLiability < 0) {
+    errors.push(`Negative available liability: ${availableLiability}`);
+  }
+  
+  // Validate pot calculation
+  const calculatedPot = claim.creator_stake + claim.total_challenger_stake;
+  if (Math.abs(calculatedPot - claim.total_pot) > 0.001) {
+    errors.push(`Pot mismatch: calculated ${calculatedPot}, stored ${claim.total_pot}`);
+  }
+  
+  // Validate challenger consistency
+  if (claim.challenger_count === 0 && claim.total_challenger_stake > 0) {
+    errors.push(`Zero challenger count but positive stake: ${claim.total_challenger_stake}`);
+  }
+  
+  if (claim.challenger_count > 0 && claim.total_challenger_stake === 0) {
+    errors.push(`Positive challenger count but zero stake: ${claim.challenger_count}`);
+  }
+  
+  return errors;
+}
+
 // ── Cursor validation and restart safety ─────────────────────────────────────
 
 /**
@@ -135,6 +334,8 @@ type ReconcileResult = {
   synced: number;
   new: number;
   stateChanges: number;
+  corrected: number;
+  inconsistencies: number;
 };
 
 export type VSFeedSnapshot = {
@@ -596,6 +797,8 @@ export async function reconcileVsIndex(): Promise<ReconcileResult> {
   let synced = 0;
   let newClaims = 0;
   let stateChanges = 0;
+  let corrected = 0;
+  let inconsistencies = 0;
 
   // 1. Backfill new claims page by page, checkpointing after EVERY page.
   //    The old version wrote last_claim_count only at the very end, so any
@@ -609,6 +812,17 @@ export async function reconcileVsIndex(): Promise<ReconcileResult> {
     const pageEnd = Math.min(startId + CLAIM_SYNC_PAGE_SIZE - 1, totalClaimCount);
     const expected = pageEnd - startId + 1;
     const pageClaims = await getClaimSummaries(startId, expected);
+    
+    // Validate chain-state accounting before persisting
+    for (const claim of pageClaims) {
+      const accountingErrors = validateClaimAccounting(claim);
+      if (accountingErrors.length > 0) {
+        console.warn(`[vs-index] Chain state accounting errors for claim ${claim.id}:`, accountingErrors);
+        // Still persist the claim as-is from chain (contract-first principle)
+        // but log the discrepancy for investigation
+      }
+    }
+    
     if (pageClaims.length > 0) {
       await persistIndexedClaims(pageClaims);
       synced += pageClaims.length;
@@ -637,6 +851,14 @@ export async function reconcileVsIndex(): Promise<ReconcileResult> {
   for (const row of rowsToRefresh) {
     const fresh = await refreshIndexedClaim({ claimId: row.id });
     if (!fresh) continue;
+    
+    // Validate chain-state accounting
+    const accountingErrors = validateClaimAccounting(fresh);
+    if (accountingErrors.length > 0) {
+      console.warn(`[vs-index] Chain state accounting errors for refreshed claim ${fresh.id}:`, accountingErrors);
+      inconsistencies += 1;
+    }
+    
     synced += 1;
     if (
       fresh.state !== row.state ||
@@ -644,6 +866,33 @@ export async function reconcileVsIndex(): Promise<ReconcileResult> {
       fresh.challenger_count !== row.challenger_count
     ) {
       stateChanges += 1;
+      
+      // Detect discrepancies between indexed and chain state
+      const discrepancies = compareClaimStates(row, fresh);
+      if (discrepancies.length > 0) {
+        console.warn(`[vs-index] Chain-index discrepancy for claim ${row.id}:`, discrepancies);
+        inconsistencies += discrepancies.filter(d => d.severity === "critical").length;
+        corrected += 1; // This correction came from chain state
+      }
+    }
+  }
+
+  // 3. Periodic full validation of a sample of indexed claims
+  //    This catches drift that might have been missed in the incremental refresh
+  if (pagesDone === 0 && activeRows.length > 0) {
+    const sampleSize = Math.min(5, activeRows.length);
+    const sampleRows = activeRows.slice(0, sampleSize);
+    
+    for (const row of sampleRows) {
+      const fresh = await refreshIndexedClaim({ claimId: row.id });
+      if (!fresh) continue;
+      
+      const discrepancies = compareClaimStates(row, fresh);
+      if (discrepancies.length > 0) {
+        console.warn(`[vs-index] Validation discrepancy for claim ${row.id}:`, discrepancies);
+        inconsistencies += discrepancies.filter(d => d.severity === "critical").length;
+        corrected += 1;
+      }
     }
   }
 
@@ -654,6 +903,8 @@ export async function reconcileVsIndex(): Promise<ReconcileResult> {
     synced,
     new: newClaims,
     stateChanges,
+    corrected,
+    inconsistencies,
   };
 }
 
