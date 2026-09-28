@@ -6,8 +6,9 @@ import {
   validateMoneyField,
   validateClaimAccounting,
   compareClaimStates,
+  validateCursorValue,
   type ClaimDiscrepancy
-} from "../../lib/server/vs-index";
+} from "../../lib/server/sync-helpers";
 import type { ClaimData } from "../../lib/contract";
 import type { ClaimRow } from "../../lib/db";
 
@@ -205,4 +206,24 @@ test("compareClaimStates compares indexed and chain states", () => {
   assert.equal(warningDiscrepancies.length, 1);
   assert.equal(warningDiscrepancies[0].field, "category");
   assert.equal(warningDiscrepancies[0].severity, "warning");
+});
+
+// ── Cursor validation tests ────────────────────────────────────────────────
+
+test("validateCursorValue validates cursor values", () => {
+  // Valid values
+  assert.equal(validateCursorValue("100", "test", "test-context"), 100);
+  assert.equal(validateCursorValue("0", "test", "test-context"), 0);
+  assert.equal(validateCursorValue(null, "test", "test-context"), null);
+  assert.equal(validateCursorValue("", "test", "test-context"), null);
+  
+  // Invalid values
+  assert.equal(validateCursorValue("-1", "test", "test-context"), null); // Negative
+  assert.equal(validateCursorValue("1.5", "test", "test-context"), null); // Not integer
+  assert.equal(validateCursorValue("0x64", "test", "test-context"), null); // Hexadecimal
+  assert.equal(validateCursorValue("1e2", "test", "test-context"), null); // Scientific notation
+  assert.equal(validateCursorValue("  100  ", "test", "test-context"), null); // Whitespace
+  assert.equal(validateCursorValue("abc", "test", "test-context"), null); // Non-numeric
+  assert.equal(validateCursorValue("NaN", "test", "test-context"), null); // NaN
+  assert.equal(validateCursorValue("Infinity", "test", "test-context"), null); // Infinity
 });

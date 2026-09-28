@@ -60,6 +60,7 @@ import {
   isMarketConfigured,
   requireMarketContractId,
 } from "@/lib/stellar";
+import { validateCursorValue as validateCursorValueImpl } from "@/lib/server/sync-helpers";
 import {
   getSyncMeta,
   insertFeeAccrual,
@@ -68,6 +69,9 @@ import {
   setSyncMeta,
   upsertMarketSettlement,
 } from "@/lib/db";
+
+// Re-export for backwards compatibility
+export const validateCursorValue = validateCursorValueImpl;
 
 /**
  * Deliberately NOT the old `settlement_cursor_block` key.
@@ -85,52 +89,6 @@ const MAX_PAGES_PER_PASS = 30;
 // ── Cursor validation and restart safety ─────────────────────────────────────
 
 /**
- * Validate and sanitize a sync cursor value.
- *
- * Malformed, negative, or non-numeric cursor values are rejected to prevent
- * corrupted state from propagating. This is the defense against a poisoned
- * `sync_meta` row — whether from manual intervention, a failed migration, or
- * a bug in an earlier version.
- */
-export function validateCursorValue(value: string | null, key: string): number | null {
-  if (value == null || value === "") return null;
-  
-  // Trim whitespace to reject "  100  " as invalid
-  const trimmed = value.trim();
-  if (trimmed !== value) {
-    console.warn(`[settlement-index] Invalid cursor value for ${key}: "${value}" (contains whitespace), resetting to null`);
-    return null;
-  }
-  
-  // Reject hexadecimal strings like "0x64"
-  if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) {
-    console.warn(`[settlement-index] Invalid cursor value for ${key}: "${value}" (hexadecimal format), resetting to null`);
-    return null;
-  }
-  
-  // Reject scientific notation like "1e2" or "1E2"
-  if (/^[+-]?\d+e[+-]?\d+$/i.test(trimmed)) {
-    console.warn(`[settlement-index] Invalid cursor value for ${key}: "${value}" (scientific notation), resetting to null`);
-    return null;
-  }
-  
-  const parsed = Number(trimmed);
-  // Reject non-finite values, negative numbers, and NaN
-  if (!Number.isFinite(parsed) || parsed < 0 || Number.isNaN(parsed)) {
-    console.warn(`[settlement-index] Invalid cursor value for ${key}: "${value}", resetting to null`);
-    return null;
-  }
-  
-  // Reject floating point numbers - cursor positions must be integers
-  if (!Number.isInteger(parsed)) {
-    console.warn(`[settlement-index] Invalid cursor value for ${key}: "${value}" (not an integer), resetting to null`);
-    return null;
-  }
-  
-  return parsed;
-}
-
-/**
  * Transactionally update a sync cursor with validation.
  *
  * The cursor is only advanced if the new value is greater than the current one,
@@ -140,7 +98,7 @@ export function validateCursorValue(value: string | null, key: string): number |
  */
 async function advanceCursor(key: string, newValue: number): Promise<void> {
   const current = await getSyncMeta(key);
-  const currentValidated = validateCursorValue(current, key);
+  const currentValidated = validateCursorValue(current, key, "settlement-index");
   
   // Only advance; never roll back. A rollback would mean losing progress and
   // re-scanning already-indexed data, which is both wasteful and a replay risk.
@@ -161,7 +119,7 @@ async function advanceCursor(key: string, newValue: number): Promise<void> {
  */
 async function recoverCursor(key: string, fallback: number): Promise<number> {
   const current = await getSyncMeta(key);
-  const validated = validateCursorValue(current, key);
+  const validated = validateCursorValue(current, key, "settlement-index");
   
   if (validated === null) {
     console.warn(`[settlement-index] Recovering cursor ${key} to fallback value ${fallback}`);
@@ -318,7 +276,7 @@ export async function reconcileSettlements(): Promise<SettlementSyncResult> {
 
   // Use validated cursor; fall back to deploy ledger if corrupted
   const stored = await getSyncMeta(CURSOR_KEY).catch(() => null);
-  const validatedStored = validateCursorValue(stored, CURSOR_KEY);
+  const validatedStored = validateCursorValue(stored, CURSOR_KEY, "settlement-index");
   // Re-read the cursor ledger itself: a scan that stopped mid-ledger would
   // otherwise drop the events after the one it happened to stop on. Replaying is
   // free because every write is idempotent.

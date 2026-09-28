@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateCursorValue } from "../../lib/server/vs-index";
+import { validateCursorValue } from "../../lib/server/sync-helpers";
 
 // Mock the sync meta functions for testing cursor validation
 const mockSyncMetaStore = new Map<string, string>();
@@ -22,7 +22,7 @@ async function advanceCursor(
   setMeta: (key: string, value: string) => Promise<void>
 ): Promise<void> {
   const current = await getMeta(key);
-  const currentValidated = validateCursorValue(current, key);
+  const currentValidated = validateCursorValue(current, key, "sync-cursor-safety-test");
   
   // Only advance; never roll back
   if (currentValidated !== null && newValue <= currentValidated) {
@@ -40,7 +40,7 @@ async function recoverCursor(
   setMeta: (key: string, value: string) => Promise<void>
 ): Promise<number> {
   const current = await getMeta(key);
-  const validated = validateCursorValue(current, key);
+  const validated = validateCursorValue(current, key, "sync-cursor-safety-test");
   
   if (validated === null) {
     console.warn(`Recovering cursor ${key} to fallback value ${fallback}`);
@@ -54,38 +54,38 @@ async function recoverCursor(
 // ── Cursor validation tests ─────────────────────────────────────────────────
 
 test("validateCursorValue accepts valid positive integers", () => {
-  assert.equal(validateCursorValue("100", "test_key"), 100);
-  assert.equal(validateCursorValue("0", "test_key"), 0);
-  assert.equal(validateCursorValue("999999", "test_key"), 999999);
+  assert.equal(validateCursorValue("100", "test_key", "sync-cursor-safety-test"), 100);
+  assert.equal(validateCursorValue("0", "test_key", "sync-cursor-safety-test"), 0);
+  assert.equal(validateCursorValue("999999", "test_key", "sync-cursor-safety-test"), 999999);
 });
 
 test("validateCursorValue rejects null and empty strings", () => {
-  assert.equal(validateCursorValue(null, "test_key"), null);
-  assert.equal(validateCursorValue("", "test_key"), null);
+  assert.equal(validateCursorValue(null, "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("", "test_key", "sync-cursor-safety-test"), null);
 });
 
 test("validateCursorValue rejects negative numbers", () => {
-  assert.equal(validateCursorValue("-1", "test_key"), null);
-  assert.equal(validateCursorValue("-100", "test_key"), null);
+  assert.equal(validateCursorValue("-1", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("-100", "test_key", "sync-cursor-safety-test"), null);
 });
 
 test("validateCursorValue rejects non-numeric strings", () => {
-  assert.equal(validateCursorValue("abc", "test_key"), null);
-  assert.equal(validateCursorValue("100abc", "test_key"), null);
-  assert.equal(validateCursorValue("nan", "test_key"), null);
+  assert.equal(validateCursorValue("abc", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("100abc", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("nan", "test_key", "sync-cursor-safety-test"), null);
 });
 
 test("validateCursorValue rejects NaN and Infinity", () => {
-  assert.equal(validateCursorValue("NaN", "test_key"), null);
-  assert.equal(validateCursorValue("Infinity", "test_key"), null);
-  assert.equal(validateCursorValue("-Infinity", "test_key"), null);
+  assert.equal(validateCursorValue("NaN", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("Infinity", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("-Infinity", "test_key", "sync-cursor-safety-test"), null);
 });
 
 test("validateCursorValue rejects floating point numbers", () => {
   // Cursor positions must be integers
-  assert.equal(validateCursorValue("100.5", "test_key"), null);
-  assert.equal(validateCursorValue("0.1", "test_key"), null);
-  assert.equal(validateCursorValue("100.0", "test_key"), 100); // Integer representation is valid
+  assert.equal(validateCursorValue("100.5", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("0.1", "test_key", "sync-cursor-safety-test"), null);
+  assert.equal(validateCursorValue("100.0", "test_key", "sync-cursor-safety-test"), 100); // Integer representation is valid
 });
 
 // ── Cursor advancement tests ────────────────────────────────────────────────
