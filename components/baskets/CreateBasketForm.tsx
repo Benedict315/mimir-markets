@@ -34,6 +34,7 @@ export interface PickableAgent {
 }
 
 const POLICY_ERROR_COPY: Record<string, string> = {
+  weights_must_be_integers: "Weights must be whole numbers.",
   weights_must_total_10000_bps: "Weights must total 100%.",
   duplicate_agent: "Each agent may appear only once.",
   single_agent_exposure: `No single agent may exceed ${DEFAULT_BASKET_POLICY.maxSingleAgentBps / 100}%.`,
@@ -136,7 +137,7 @@ export function CreateBasketForm({ agents }: { agents: PickableAgent[] }) {
       if (!agent) continue;
       items.push({
         agentId: id,
-        weightBps: percent * 100,
+        weightBps: Math.round(percent * 100),
         // Match POST /api/baskets: category = directory track, mode = pool.
         category: agent.track,
         mode: "pool",
@@ -183,7 +184,7 @@ export function CreateBasketForm({ agents }: { agents: PickableAgent[] }) {
     setBusy(true);
     setError(null);
     try {
-      const members = chosen.map(([agentId, percent]) => ({ agentId, weightBps: percent * 100 }));
+      const members = chosen.map(([agentId, percent]) => ({ agentId, weightBps: Math.round(percent * 100) }));
       const signature = await signMessage(
         basketMessage({ name: name.trim(), creator: address, members }),
       );

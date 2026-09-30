@@ -25,6 +25,7 @@
 
 import { listCouncilPersonas, type PersonaSpec } from "../council/personas";
 import { fetchWithBudget, type PayingWallet } from "../../lib/x402/buyer";
+import { outboundTraceHeaders } from "../../lib/ops/trace-http";
 import { getCouncilAddress, transferUsdc, type AgentWallet } from "../../lib/agent-wallets";
 import { getUsdcBalanceUnits, formatAtomicUsdc, parseUsdcAtomic, USDC_UNIT } from "../../lib/usdc";
 import { STELLAR_NETWORK } from "../../lib/stellar";
@@ -182,9 +183,18 @@ export function isConfirmedCouncilSettlement(
   evidenceHash: string,
   pending: boolean,
 ): boolean {
-  return !pending && claim?.state === "resolved" &&
+  // Normalize both sides: strip an optional `0x` prefix and fold to lowercase.
+  // The on-chain `evidence_hash` is decoded from `BytesN<32>` and re-encoded as
+  // bare lowercase hex in `lib/contract.ts`'s `toHex`, but a caller or older
+  // read path might supply a `0x`-prefixed value. Using the same normalization
+  // that `verifyEvidenceCommitment` uses keeps the comparison consistent.
+  const normalize = (h: string) => h.trim().toLowerCase().replace(/^0x/, "");
+  return (
+    !pending &&
+    claim?.state === "resolved" &&
     claim.winner_side === expectedSide &&
-    claim.evidence_hash?.toLowerCase() === evidenceHash.toLowerCase();
+    normalize(claim.evidence_hash ?? "") === normalize(evidenceHash)
+  );
 }
 
 /** Personas that can judge a claim: evidence-reasoning (have a promptBias) and,
@@ -233,8 +243,8 @@ export async function gatherCouncilVerdict(args: {
   const capUnits = usdcToUnits(args.capUsdc ?? 0.005);
   const quorum = normalizeQuorum(args.quorum ?? 3);
   const claimState: ClaimSettleState = args.claimState ?? "active";
-  // Cancelled / resolved claims never buy votes — chain already decided.
-  if (claimState === "cancelled" || claimState === "resolved") {
+  // Cancelled / resolved / paused claims never buy votes — chain already decided.
+  if (claimState === "cancelled" || claimState === "resolved" || claimState === "paused") {
     const gate = evaluateQuorum([], quorum, { claimState });
     console.warn(`[council] ${gate.reason}`);
     return null;
@@ -263,7 +273,13 @@ export async function gatherCouncilVerdict(args: {
       url += `&history=${encodeURIComponent(JSON.stringify(history.slice(-8)))}`;
     }
     try {
-      const r = await fetchWithBudget(url, args.payer, capUnits);
+      // The trace header rides the same request as the payment, so the buy-a-vote
+      // cycle, this HTTP call, and the web-side span share one id. It is inert as
+      // far as the x402 proof is concerned — the payment is signed, not the header
+      // set — so correlation costs the settlement path nothing.
+      const r = await fetchWithBudget(url, args.payer, capUnits, {
+        headers: outboundTraceHeaders(),
+      });
       if (!r.response.ok) {
         classified.push(
           classifyVoteAttempt({

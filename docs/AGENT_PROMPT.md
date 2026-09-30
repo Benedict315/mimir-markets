@@ -147,7 +147,7 @@ npm run test:smoke              # Node smoke tests
 - `MIN_STAKE = 2_0000000` — 2 USDC (7 decimals, as the USDC Stellar Asset Contract reports)
 - `MAX_CHALLENGERS = 100`
 - `DEFAULT_PAYOUT_BPS = 20_000` — 2x for fixed odds
-- `CHALLENGE_LOCK_SECONDS = 60` — anti-sniping window before deadline
+- `CHALLENGE_LOCK_SECONDS = 60` — anti-sniping window before deadline: a challenge is accepted up to and including `deadline - CHALLENGE_LOCK_SECONDS`, so a market created with less than the window left to live can never be challenged
 - `MAX_TOTAL_FEE_BPS = 1_000` — hard 10% ceiling on platform + agent-owner fee, immutable by construction
 - `FEE_TIMELOCK_SECONDS = 172_800` — a queued fee policy cannot execute for 2 days
 - `MAX_INVITE_KEY_BYTES = 128` — a Soroban `String` must be marshalled through a fixed host buffer to be hashed

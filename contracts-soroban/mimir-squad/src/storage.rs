@@ -18,6 +18,10 @@ pub enum DataKey {
     Deposit(u64, u32, Address),
     /// (market, side, participant) -> already claimed.
     Claimed(u64, u32, Address),
+    /// (market, side, participant) -> payout settled in the ledger but not
+    /// delivered, because the token transfer trapped (frozen or deauthorized
+    /// trustline). Parked until `claim_parked_payout` can move it.
+    Payout(u64, u32, Address),
 }
 
 const BUMP_THRESHOLD: u32 = 120_960;
@@ -137,6 +141,29 @@ pub fn has_claimed(env: &Env, id: u64, side: u32, who: &Address) -> bool {
 pub fn mark_claimed(env: &Env, id: u64, side: u32, who: &Address) {
     let key = DataKey::Claimed(id, side, who.clone());
     env.storage().persistent().set(&key, &true);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, BUMP_THRESHOLD, BUMP_EXTEND);
+}
+
+// ── Parked payouts ───────────────────────────────────────────────────────────
+
+/// Payout settled in the ledger but not delivered yet. Zero means nothing is
+/// parked, and writing zero removes the entry rather than storing a zero.
+pub fn payout_of(env: &Env, id: u64, side: u32, who: &Address) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Payout(id, side, who.clone()))
+        .unwrap_or(0)
+}
+
+pub fn set_payout(env: &Env, id: u64, side: u32, who: &Address, value: i128) {
+    let key = DataKey::Payout(id, side, who.clone());
+    if value == 0 {
+        env.storage().persistent().remove(&key);
+        return;
+    }
+    env.storage().persistent().set(&key, &value);
     env.storage()
         .persistent()
         .extend_ttl(&key, BUMP_THRESHOLD, BUMP_EXTEND);

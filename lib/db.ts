@@ -84,6 +84,7 @@ export interface ClaimFilters {
   visibility?: string;
   isFinal?: boolean;
   limit?: number;
+  cursor?: number;
   orderBy?: "id_desc" | "updated_desc" | "deadline_asc" | "deadline_desc";
 }
 
@@ -327,6 +328,7 @@ const SCHEMA_STATEMENTS: SqlStatement[] = [
   // through the overlap window after rotation. Idempotent ALTER TABLE: Postgres
   // ignores the statement when the column already exists.
   { sql: "ALTER TABLE agent_api_keys ADD COLUMN IF NOT EXISTS expires_at BIGINT" },
+  { sql: "ALTER TABLE agent_api_keys ADD COLUMN IF NOT EXISTS scopes_json TEXT" },
   { sql: `CREATE TABLE IF NOT EXISTS agent_spend_permissions (
     permission_hash TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -545,6 +547,15 @@ const SCHEMA_STATEMENTS: SqlStatement[] = [
    * definition never reach the chain and so cannot be rebuilt from it. Keeping them
    * is the only way to measure shadow-mode precision against human review before
    * autonomous publishing is switched on.
+   *
+   * Review queue state (review_status):
+   *   - queued: newly created, awaiting human review
+   *   - in_review: a reviewer has claimed it
+   *   - approved: human agreed, ready for publish (or already published)
+   *   - rejected: human disagreed, will not be published
+   *   - cancelled: creator cancelled before review (e.g. duplicate detected)
+   *   - stale: deadline passed without review, auto-expired
+   *   - dependency_failed: downstream dependency failed (oracle, preflight, etc.)
    */
   { sql: `CREATE TABLE IF NOT EXISTS market_proposals (
     proposal_id TEXT PRIMARY KEY,
@@ -569,10 +580,24 @@ const SCHEMA_STATEMENTS: SqlStatement[] = [
     /** Set when the proposal was actually published. */
     claim_id BIGINT,
     /** Human review outcome, filled in later: agree | disagree | unreviewed. */
-    review TEXT NOT NULL DEFAULT 'unreviewed'
+    review TEXT NOT NULL DEFAULT 'unreviewed',
+    /** Explicit review queue state for operational boundaries. */
+    review_status TEXT NOT NULL DEFAULT 'queued',
+    /** When the proposal entered the review queue (set on first queued). */
+    queued_at BIGINT,
+    /** When review was claimed by a reviewer. */
+    claimed_at BIGINT,
+    /** When review was completed (approved/rejected). */
+    reviewed_at BIGINT,
+    /** Reviewer address who claimed/completed the review. */
+    reviewer TEXT,
+    /** Reason for cancellation, staleness, or dependency failure. */
+    failure_reason TEXT
   )` },
   { sql: "CREATE INDEX IF NOT EXISTS idx_market_proposals_created ON market_proposals(created_at DESC)" },
   { sql: "CREATE INDEX IF NOT EXISTS idx_market_proposals_disposition ON market_proposals(disposition)" },
+  { sql: "CREATE INDEX IF NOT EXISTS idx_market_proposals_review_status ON market_proposals(review_status)" },
+  { sql: "CREATE INDEX IF NOT EXISTS idx_market_proposals_queued ON market_proposals(queued_at) WHERE review_status = 'queued'" },
   { sql: `CREATE TABLE IF NOT EXISTS market_series (
     series_id TEXT PRIMARY KEY,
     schema_version SMALLINT NOT NULL DEFAULT 1,
@@ -687,6 +712,19 @@ const SCHEMA_STATEMENTS: SqlStatement[] = [
   },
 ];
 
+/**
+ * The ordered schema definition applied by `ensureSchema`. Exposed so the
+ * snapshot gate (`lib/ops/schema-snapshot.ts`, `npm run check:schema-snapshot`)
+ * can fingerprint the exact statements a deployment will run — no database and
+ * no secrets required.
+ */
+export function getSchemaStatements(): ReadonlyArray<{
+  sql: string;
+  args?: ReadonlyArray<unknown>;
+}> {
+  return SCHEMA_STATEMENTS;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __mimirDbPool:  Pool | undefined;
@@ -718,11 +756,11 @@ function toPg(sql: string): string {
 async function execute(
   pool: Pool,
   stmt: SqlStatement,
-): Promise<{ rows: Array<Record<string, unknown>> }> {
+): Promise<{ rows: Array<Record<string, unknown>>; rowCount: number }> {
   const args = stmt.args ?? [];
   const sql = stmt.sql.includes("$") ? stmt.sql : toPg(stmt.sql);
   const result = await pool.query(sql, args as unknown[]);
-  return { rows: result.rows as Array<Record<string, unknown>> };
+  return { rows: result.rows as Array<Record<string, unknown>>, rowCount: result.rowCount ?? 0 };
 }
 
 async function ensureSchema(pool: Pool): Promise<void> {
@@ -1058,6 +1096,10 @@ export async function getClaimsByFilter(filters: ClaimFilters = {}): Promise<Cla
       break;
     case "id_desc":
     default:
+      if (typeof filters.cursor === "number") {
+        clauses.push("id < ?");
+        args.push(filters.cursor);
+      }
       orderBy = "ORDER BY id DESC";
       break;
   }
@@ -1443,6 +1485,18 @@ export interface MarketProposalRow {
   disposition: string;
   blocked_by: string | null;
   claim_id: number | null;
+  /** Explicit review queue state. */
+  review_status: "queued" | "in_review" | "approved" | "rejected" | "cancelled" | "stale" | "dependency_failed";
+  /** When the proposal entered the review queue. */
+  queued_at: number | null;
+  /** When review was claimed by a reviewer. */
+  claimed_at: number | null;
+  /** When review was completed. */
+  reviewed_at: number | null;
+  /** Reviewer address who claimed/completed the review. */
+  reviewer: string | null;
+  /** Reason for cancellation, staleness, or dependency failure. */
+  failure_reason: string | null;
 }
 
 /**
@@ -1451,16 +1505,21 @@ export interface MarketProposalRow {
  * Idempotent on proposal_id: a worker retrying a run must not create a second
  * record of the same decision, or shadow-mode precision would be measured against
  * inflated counts.
+ *
+ * Sets queued_at to created_at when review_status is 'queued' (first insert only).
  */
 export async function insertMarketProposal(row: MarketProposalRow): Promise<void> {
   const pool = await getDb();
+  const now = row.created_at;
+  const queuedAt = row.review_status === "queued" ? now : row.queued_at;
   await execute(pool, {
     sql: `INSERT INTO market_proposals (
       proposal_id, created_at, question, creator_position, counter_position, category,
       subject_type, settlement_mode, product_modifiers, mode_rationale, stake_policy,
       context_pack_hash, resolution_url, settlement_rule, deadline, quality_score,
-      preflight_verdict, disposition, blocked_by, claim_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      preflight_verdict, disposition, blocked_by, claim_id,
+      review_status, queued_at, claimed_at, reviewed_at, reviewer, failure_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (proposal_id) DO NOTHING`,
     args: [
       row.proposal_id,
@@ -1483,8 +1542,132 @@ export async function insertMarketProposal(row: MarketProposalRow): Promise<void
       row.disposition,
       row.blocked_by,
       row.claim_id,
+      row.review_status,
+      queuedAt,
+      row.claimed_at,
+      row.reviewed_at,
+      row.reviewer,
+      row.failure_reason,
     ],
   });
+}
+
+/**
+ * Update the review queue status of a proposal.
+ * Handles state transitions with validation.
+ */
+export async function updateProposalReviewStatus(
+  proposalId: string,
+  status: MarketProposalRow["review_status"],
+  opts: { reviewer?: string; failureReason?: string } = {}
+): Promise<boolean> {
+  const pool = await getDb();
+  const now = Date.now();
+  let setClause = "review_status = ?";
+  const args: unknown[] = [status];
+
+  switch (status) {
+    case "in_review":
+      setClause += ", claimed_at = ?, reviewer = ?";
+      args.push(now, opts.reviewer ?? null);
+      break;
+    case "approved":
+    case "rejected":
+      setClause += ", reviewed_at = ?, reviewer = ?, review = ?";
+      args.push(now, opts.reviewer ?? null, status === "approved" ? "agree" : "disagree");
+      break;
+    case "cancelled":
+    case "stale":
+    case "dependency_failed":
+      setClause += ", reviewed_at = ?, failure_reason = ?";
+      args.push(now, opts.failureReason ?? null);
+      break;
+  }
+
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals SET ${setClause} WHERE proposal_id = ?`,
+    args: [...args, proposalId],
+  });
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Claim a proposal for review (sets status to in_review).
+ * Returns true if successfully claimed, false if already claimed or not queued.
+ */
+export async function claimProposalForReview(proposalId: string, reviewer: string): Promise<boolean> {
+  const pool = await getDb();
+  const now = Date.now();
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals
+          SET review_status = 'in_review', claimed_at = ?, reviewer = ?
+          WHERE proposal_id = ? AND review_status = 'queued'`,
+    args: [now, reviewer, proposalId],
+  });
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Complete a review (approve or reject).
+ * Returns true if successful, false if not in_review or already completed.
+ */
+export async function completeProposalReview(
+  proposalId: string,
+  reviewer: string,
+  approve: boolean
+): Promise<boolean> {
+  const pool = await getDb();
+  const now = Date.now();
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals
+          SET review_status = ?, reviewed_at = ?, reviewer = ?, review = ?
+          WHERE proposal_id = ? AND review_status = 'in_review' AND reviewer = ?`,
+    args: [approve ? "approved" : "rejected", now, reviewer, approve ? "agree" : "disagree", proposalId, reviewer],
+  });
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Mark proposals as stale (deadline passed without review).
+ * Call periodically via a cron/worker.
+ */
+export async function markStaleProposals(nowSeconds: number): Promise<number> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals
+          SET review_status = 'stale', reviewed_at = ?, failure_reason = 'review deadline passed'
+          WHERE review_status IN ('queued', 'in_review') AND deadline > 0 AND deadline < ?`,
+    args: [Date.now(), nowSeconds],
+  });
+  return result.rowCount ?? 0;
+}
+
+/**
+ * Cancel a proposal (e.g., duplicate detected, creator decision).
+ */
+export async function cancelProposal(proposalId: string, reason: string): Promise<boolean> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals
+          SET review_status = 'cancelled', reviewed_at = ?, failure_reason = ?
+          WHERE proposal_id = ? AND review_status IN ('queued', 'in_review')`,
+    args: [Date.now(), reason, proposalId],
+  });
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Mark a proposal as dependency_failed (e.g., oracle failure, preflight failure).
+ */
+export async function markProposalDependencyFailed(proposalId: string, reason: string): Promise<boolean> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `UPDATE market_proposals
+          SET review_status = 'dependency_failed', reviewed_at = ?, failure_reason = ?
+          WHERE proposal_id = ? AND review_status IN ('queued', 'in_review')`,
+    args: [Date.now(), reason, proposalId],
+  });
+  return (result.rowCount ?? 0) > 0;
 }
 
 /** Link a published claim back to the proposal that produced it. */
@@ -1871,7 +2054,7 @@ export async function getAgentEarningsSummary(payoutWallet: string): Promise<{
   return { ownerFeesAtomic: getBigInt(row.owner_fees), unclaimedAtomic: getBigInt(row.unclaimed), x402Atomic: getBigInt(row.x402) };
 }
 
-export async function getPaymentsRevenueSummary(limit = 25): Promise<PaymentsRevenueSummary> {
+export async function getPaymentsRevenueSummary(limit = 25, offset = 0): Promise<PaymentsRevenueSummary> {
   const pool = await getDb();
   const [totals, byResource, bySeller, recent] = await Promise.all([
     execute(pool, {
@@ -1895,8 +2078,8 @@ export async function getPaymentsRevenueSummary(limit = 25): Promise<PaymentsRev
       sql: `SELECT resource, scheme, network, asset_address, asset_symbol, asset_decimals,
               amount_atomic, payer, seller, transaction_hash, payment_identifier,
               facilitator, settled_at, created_at
-            FROM payments_v2 ORDER BY settled_at DESC, id DESC LIMIT ?`,
-      args: [limit],
+            FROM payments_v2 ORDER BY settled_at DESC, id DESC LIMIT ? OFFSET ?`,
+      args: [limit, offset],
     }),
   ]);
   const t = totals.rows[0] ?? {};
@@ -2079,10 +2262,10 @@ export async function insertAgentApiKey(record: AgentApiKeyRecord): Promise<void
   const pool = await getDb();
   await execute(pool, {
     sql: `INSERT INTO agent_api_keys (
-      key_id, agent_id, key_hash, key_prefix, label, created_at, expires_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      key_id, agent_id, key_hash, key_prefix, label, created_at, expires_at, scopes_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [record.keyId, record.agentId, record.keyHash, record.keyPrefix,
-      record.label, record.createdAt, record.expiresAt ?? null],
+      record.label, record.createdAt, record.expiresAt ?? null, record.scopes ? JSON.stringify(record.scopes) : null],
   });
 }
 
@@ -2098,6 +2281,7 @@ function toApiKeyRecord(row: Record<string, unknown>): AgentApiKeyRecord {
     expiresAt: row.expires_at == null ? undefined : getNumber(row.expires_at),
     revokedAt: row.revoked_at == null ? undefined : getNumber(row.revoked_at),
     revokedReason: row.revoked_reason == null ? undefined : getString(row.revoked_reason),
+    scopes: row.scopes_json ? JSON.parse(getString(row.scopes_json)) : undefined,
   };
 }
 

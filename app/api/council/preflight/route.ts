@@ -10,6 +10,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { paidRoute, queryParam } from "@/lib/x402/server";
+import { tracedRoute } from "@/lib/ops/trace-http";
 import type { HTTPRequestContext } from "@x402/core/http";
 import { PRICES } from "@/lib/x402/config";
 import { getPersonaBySlug } from "@/agents/council/personas";
@@ -228,5 +229,6 @@ Omit a dimension rather than guessing at it. Favor clear, verifiable, balanced m
   });
 }
 
-// Dynamic payTo: each persona is paid into its own wallet.
-export const POST = paidRoute("councilPreflight", handler, { payTo: personaAddress });
+// Dynamic payTo: each persona is paid into its own wallet. Traced so the
+// market-creator's preflight cycle and the read it made share one id.
+export const POST = tracedRoute("api.council.preflight", paidRoute("councilPreflight", handler, { payTo: personaAddress }));

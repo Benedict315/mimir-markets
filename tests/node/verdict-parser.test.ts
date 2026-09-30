@@ -28,8 +28,15 @@ import {
   checkSettlementGuards,
   parseVerdictPayload,
   dependencyFailure,
+  malformedFailure,
+  validateResearchCitation,
+  validateCitationsList,
+  MAX_VERDICT_CITATIONS,
+  MAX_CITATION_TITLE_CHARS,
+  MAX_CITATION_EXCERPT_CHARS,
   type VerdictPayload,
   type VerdictGuardContext,
+  type ResearchCitation,
 } from "../../lib/verdict";
 
 import {
@@ -38,21 +45,20 @@ import {
   VERDICT_LLM_SCHEMA,
   VERDICT_RETRY_SUFFIX,
 } from "../../lib/verdict-parser";
+import { extractJson } from "../../lib/llm";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Minimal extractJson stub: returns the first {...} block found via regex.
- * Handles fenced code blocks (strips the fence first) and prose wrappers.
- * Good enough for the cases tests need to exercise; the real extractJson in
- * lib/llm.ts has full balanced-brace walking.
+ * extractJson stub: returns the first balanced {...} block.
+ * Handles fenced code blocks and prose wrappers.
  */
 function stubExtract(text: string): string | null {
   // Strip ```json ... ``` fences
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1].trim();
   // Find first { ... } block
-  const m = text.match(/\{[\s\S]*\}/);
+  const m = text.match(/\{[^{}]*\}/);
   return m ? m[0] : null;
 }
 
@@ -350,6 +356,40 @@ test("parseVerdictPayload: guard passes, then valid JSON => ok=true", () => {
   assert.equal(r.payload.verdict, "DRAW");
 });
 
+test("parseVerdictPayload: payload with valid citations parses cleanly", () => {
+  const text = JSON.stringify({
+    verdict: "CREATOR_WINS",
+    confidence: 85,
+    explanation: "Evidence verified.",
+    citations: [
+      {
+        url: "https://example.com/source",
+        contentHash: "abcdef0123456789",
+        capturedAt: 1700000000000,
+        title: "Official Source",
+        trustTier: "primary",
+      },
+    ],
+  });
+  const r = parseVerdictPayload(text, identityExtract);
+  assert.ok(r.ok);
+  assert.equal(r.payload.citations?.length, 1);
+  assert.equal(r.payload.citations?.[0].domain, "example.com");
+  assert.equal(r.payload.citations?.[0].contentHash, "abcdef0123456789");
+});
+
+test("parseVerdictPayload: malformed citations structure => reason=malformed", () => {
+  const text = JSON.stringify({
+    verdict: "CREATOR_WINS",
+    confidence: 85,
+    explanation: "Evidence verified.",
+    citations: "not-an-array",
+  });
+  const r = parseVerdictPayload(text, identityExtract);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, "malformed");
+});
+
 // ── E. parseVerdictText ───────────────────────────────────────────────────────
 
 test("parseVerdictText: happy path with prose wrapper via stubExtract", () => {
@@ -588,7 +628,45 @@ test("parseLLMVerdictWithRetry: VERDICT_RETRY_SUFFIX is appended on attempt 2", 
   assert.ok(prompts[1].endsWith(VERDICT_RETRY_SUFFIX));
 });
 
-// ── G. dependencyFailure ──────────────────────────────────────────────────────
+test("parseLLMVerdictWithRetry: malformed payload triggers retry and succeeds on attempt 2", async () => {
+  let calls = 0;
+  const { result, attempts } = await parseLLMVerdictWithRetry({
+    extractor: identityExtract,
+    buildPrompt: (attempt) => `attempt-${attempt}`,
+    callLLMFn: async (prompt) => {
+      calls++;
+      if (prompt === "attempt-1") {
+        return JSON.stringify({
+          verdict: "CREATOR_WINS",
+          confidence: 80,
+          explanation: "ok",
+          citations: "invalid-not-array",
+        });
+      }
+      return JSON.stringify({
+        verdict: "CREATOR_WINS",
+        confidence: 80,
+        explanation: "ok",
+        citations: [
+          {
+            url: "https://example.com/source",
+            contentHash: "12345678",
+            capturedAt: 100,
+          },
+        ],
+      });
+    },
+  });
+  assert.equal(calls, 2);
+  assert.equal(attempts, 2);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.payload.verdict, "CREATOR_WINS");
+    assert.equal(result.payload.citations?.length, 1);
+  }
+});
+
+// ── G. Failure Constructors ───────────────────────────────────────────────────
 
 test("dependencyFailure returns a well-formed VerdictParseError", () => {
   const err = dependencyFailure("Evidence fetch timed out after 10s");
@@ -601,6 +679,13 @@ test("dependencyFailure: reason field is the dependency-failure discriminant", (
   const err = dependencyFailure("quorum not reached");
   const reason: string = err.reason;
   assert.equal(reason, "dependency-failure");
+});
+
+test("malformedFailure returns a well-formed VerdictParseError", () => {
+  const err = malformedFailure("Citations array exceeded maximum capacity");
+  assert.equal(err.ok, false);
+  assert.equal(err.reason, "malformed");
+  assert.ok(err.detail.includes("Citations"));
 });
 
 // ── H. Regression fixtures ────────────────────────────────────────────────────
@@ -691,4 +776,107 @@ test("VERDICT_LLM_SCHEMA has required fields for Gemini structured output", () =
   );
   assert.equal(VERDICT_LLM_SCHEMA.properties.confidence.type, "integer");
   assert.equal(VERDICT_LLM_SCHEMA.properties.explanation.type, "string");
+});
+
+// ── J. Research Citation Validation ──────────────────────────────────────────
+
+test("validateResearchCitation: positive full citation parses successfully", () => {
+  const valid = validateResearchCitation({
+    url: "https://api.coingecko.com/api/v3/coins/bitcoin",
+    contentHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    capturedAt: 1700000000000,
+    title: "CoinGecko API Bitcoin Snapshot",
+    trustTier: "primary",
+    excerpt: "Price was 95,000 USDC at 2026-01-01T00:00:00Z.",
+    fetcher: "coingecko-api",
+  });
+  assert.ok(valid !== null);
+  assert.equal(valid!.domain, "api.coingecko.com");
+  assert.equal(valid!.trustTier, "primary");
+  assert.equal(valid!.fetcher, "coingecko-api");
+  assert.equal(valid!.contentHash, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+});
+
+test("validateResearchCitation: negative rejects forbidden protocol (javascript, file, ftp)", () => {
+  assert.equal(validateResearchCitation({ url: "javascript:alert(1)", contentHash: "12345678", capturedAt: 100 }), null);
+  assert.equal(validateResearchCitation({ url: "file:///etc/passwd", contentHash: "12345678", capturedAt: 100 }), null);
+  assert.equal(validateResearchCitation({ url: "ftp://example.com/file", contentHash: "12345678", capturedAt: 100 }), null);
+});
+
+test("validateResearchCitation: negative rejects embedded basic auth credentials for privacy and secret safety", () => {
+  assert.equal(
+    validateResearchCitation({
+      url: "https://user:supersecretpass@example.com/api/v1",
+      contentHash: "12345678",
+      capturedAt: 100,
+    }),
+    null,
+  );
+});
+
+test("validateResearchCitation: negative rejects non-hex or out-of-range contentHash", () => {
+  assert.equal(validateResearchCitation({ url: "https://example.com", contentHash: "xyz12345", capturedAt: 100 }), null);
+  assert.equal(validateResearchCitation({ url: "https://example.com", contentHash: "1234", capturedAt: 100 }), null); // < 8 chars
+  assert.equal(validateResearchCitation({ url: "https://example.com", contentHash: "a".repeat(65), capturedAt: 100 }), null); // > 64 chars
+});
+
+test("validateResearchCitation: negative rejects invalid capturedAt", () => {
+  assert.equal(validateResearchCitation({ url: "https://example.com", contentHash: "12345678", capturedAt: -10 }), null);
+  assert.equal(validateResearchCitation({ url: "https://example.com", contentHash: "12345678", capturedAt: "never" }), null);
+});
+
+test("validateResearchCitation: boundary truncates title and excerpt to safe bounds", () => {
+  const longTitle = "T".repeat(MAX_CITATION_TITLE_CHARS + 50);
+  const longExcerpt = "E".repeat(MAX_CITATION_EXCERPT_CHARS + 50);
+  const valid = validateResearchCitation({
+    url: "https://example.com",
+    contentHash: "12345678",
+    capturedAt: 100,
+    title: longTitle,
+    excerpt: longExcerpt,
+  });
+  assert.ok(valid !== null);
+  assert.equal(valid!.title?.length, MAX_CITATION_TITLE_CHARS);
+  assert.equal(valid!.excerpt?.length, MAX_CITATION_EXCERPT_CHARS);
+});
+
+test("validateCitationsList: boundary rejects > MAX_VERDICT_CITATIONS", () => {
+  const list = Array.from({ length: MAX_VERDICT_CITATIONS + 1 }, (_, i) => ({
+    url: `https://example.com/${i}`,
+    contentHash: "12345678",
+    capturedAt: 100,
+  }));
+  const res = validateCitationsList(list);
+  assert.equal(res.ok, false);
+  assert.ok(res.error?.includes("Exceeded maximum citations limit"));
+});
+
+test("validateCitationsList: negative rejects non-array", () => {
+  const res = validateCitationsList("not-an-array");
+  assert.equal(res.ok, false);
+  assert.ok(res.error?.includes("must be an array"));
+});
+
+test("validateCitationsList: fails closed if any citation element is invalid", () => {
+  const list = [
+    { url: "https://valid.com", contentHash: "12345678", capturedAt: 100 },
+    { url: "invalid-url", contentHash: "12345678", capturedAt: 100 },
+  ];
+  const res = validateCitationsList(list);
+  assert.equal(res.ok, false);
+  assert.ok(res.error?.includes("invalid or malformed"));
+});
+
+test("validateCitationsList: positive valid list returns all citations", () => {
+  const list = [
+    { url: "https://valid1.com", contentHash: "12345678", capturedAt: 100 },
+    { url: "https://valid2.com", contentHash: "87654321", capturedAt: 200 },
+  ];
+  const res = validateCitationsList(list);
+  assert.equal(res.ok, true);
+  if (res.ok && res.citations) {
+    assert.equal(res.citations.length, 2);
+    assert.equal(res.citations[0].domain, "valid1.com");
+    assert.equal(res.citations[1].domain, "valid2.com");
+  }
 });

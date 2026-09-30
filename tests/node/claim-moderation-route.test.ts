@@ -74,7 +74,7 @@ test("POST /api/claim-moderation: feature disabled returns 404", async () => {
 
   assert.equal(response.status, 404);
   const payload = await response.json();
-  assert.equal(payload?.error?.code, "feature_disabled");
+  assert.equal(payload?.error?.code, "not_found");
 });
 
 test("POST /api/claim-moderation: invalid request returns 400", async () => {
@@ -209,7 +209,7 @@ test("POST /api/claim-moderation: global cooldown returns 429 + Retry-After", as
   assert.equal(response.status, 429);
   assert.ok(Number(response.headers.get("Retry-After")) >= 1);
   const payload = await response.json();
-  assert.equal(payload?.error?.code, "claim_moderation_rate_limited");
+  assert.equal(payload?.error?.code, "rate_limited");
 
   setGlobalCooldownMs(0);
 });

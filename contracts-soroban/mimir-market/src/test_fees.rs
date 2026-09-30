@@ -255,6 +255,9 @@ fn changing_the_platform_recipient_cannot_redirect_an_existing_claim() {
         Some(f.platform.clone())
     );
 
+    // Challenge BEFORE the timelock advance so the claim deadline is not reached.
+    f.client().challenge_claim(&c1, &id, &(10 * USDC), &None);
+
     let new_platform = Address::generate(&f.env);
     f.client()
         .queue_fee_policy(&1_000, &0, &Some(new_platform.clone()));
@@ -270,7 +273,6 @@ fn changing_the_platform_recipient_cannot_redirect_an_existing_claim() {
         Some(f.platform.clone())
     );
 
-    f.client().challenge_claim(&c1, &id, &(10 * USDC), &None);
     f.advance_by(3_600);
     f.client().resolve_claim(
         &id,

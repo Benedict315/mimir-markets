@@ -15,11 +15,22 @@
  * otherwise dominate the numbers.
  */
 
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { parseAddressParam } from "@/lib/server/api-validation";
 import type { ActorType } from "./events";
 
 export const ANON_ACTOR_ID = "anon";
+const SAFE_AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+/**
+ * A Stellar strkey in the account, muxed or contract flavours.
+ *
+ * Checked separately from {@link SAFE_AGENT_ID} as defence in depth: a wallet
+ * address used as an agent id is a permanent cross-site identity, and that must
+ * never reach `distinct_id` even if the charset check is loosened again. The id is used
+ * verbatim, and `distinct_id` sits outside the properties redactor, so nothing
+ * downstream would catch it.
+ */
+const RAW_IDENTITY = /^[GCM][A-Z2-7]{55}$/;
 
 /**
  * Salt for the actor hash. Server-side only — a public salt would make the hash
@@ -27,7 +38,8 @@ export const ANON_ACTOR_ID = "anon";
  * chain, is everyone).
  */
 function actorSalt(): string | null {
-  return process.env.ANALYTICS_ACTOR_SALT?.trim() || null;
+  const salt = process.env.ANALYTICS_ACTOR_SALT?.trim();
+  return salt && salt.length >= 16 ? salt : null;
 }
 
 /**
@@ -37,6 +49,11 @@ function actorSalt(): string | null {
  * 128 bits of the digest is far beyond collision risk for this population and
  * keeps the id short enough to read in a PostHog table.
  */
+export function opaqueAnalyticsId(value: string, salt = actorSalt()): string | null {
+  if (!salt || salt.length < 16 || !value || value.length > 512) return null;
+  return createHmac("sha256", salt).update(value).digest("hex").slice(0, 32);
+}
+
 export function actorIdForAddress(address: string, salt = actorSalt()): string | null {
   // Trimmed but NOT case-folded, and validated as a strkey rather than as 0x-hex.
   // The EVM form this replaced rejected every Stellar address, so every event was
@@ -44,8 +61,7 @@ export function actorIdForAddress(address: string, salt = actorSalt()): string |
   // accounts to the same actor id.
   const trimmed = parseAddressParam(address);
   if (!trimmed) return null;
-  if (!salt) return null;
-  return createHash("sha256").update(`${salt}:${trimmed}`).digest("hex").slice(0, 32);
+  return opaqueAnalyticsId(trimmed, salt);
 }
 
 export interface ResolvedActor {
@@ -67,10 +83,13 @@ export function resolveActor(args: {
 }): ResolvedActor {
   const actorType: ActorType = args.isAgent ? "agent" : args.address ? "human" : "anonymous";
 
-  if (args.isAgent && args.agentId) {
+  if (args.isAgent) {
     // Agents are already public identities with published addresses, so their
-    // id needs no salting — but it must not be the raw wallet either, so callers
-    // pass the registry's agent id.
+    // registry id needs no salting. Reject missing or arbitrary values:
+    // distinct_id is outside the properties redactor and has its own contract.
+    if (!args.agentId || !SAFE_AGENT_ID.test(args.agentId) || RAW_IDENTITY.test(args.agentId.trim())) {
+      return { actorId: ANON_ACTOR_ID, actorType: "anonymous", degraded: true };
+    }
     return { actorId: `agent:${args.agentId}`, actorType, degraded: false };
   }
   if (!args.address) {

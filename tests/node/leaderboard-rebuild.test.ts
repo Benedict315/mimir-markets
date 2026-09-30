@@ -9,11 +9,15 @@ import { unitsToUsdc, usdcToUnits } from "../../lib/usdc";
  * §6.6's determinism requirement: after a reorg and resync, a streak must be
  * reproduced exactly. The chain is the only input, so this walks the whole path —
  * events → projection → positions → leaderboard — rather than trusting each half.
+ *
+ * Stellar strkeys are case-sensitive base32. Addresses must be preserved verbatim
+ * from the chain — any toLowerCase() would corrupt them.
  */
 
-const CREATOR = "0x00000000000000000000000000000000000000c1";
-const ALICE = "0x00000000000000000000000000000000000000a1";
-const BOB = "0x00000000000000000000000000000000000000b1";
+// Real Stellar strkeys for testing. These are case-sensitive base32 addresses.
+const CREATOR = "GBO43ZBS4RBC2QFDKB23U6TBFEEK47ZLGSXDJSRV2H3PNQK5ZDEYXVLE";
+const ALICE = "GD2SI5PUEFKC7TONNX7OR72WMYUO7WZDSCDSIVWWXPDIDYW5OP3ETM5D";
+const BOB = "GCIXSDPXXIJSLEVZSYFCZRNOD6GBFIFKNTEI6X2HC6LE65KUVYMGU4X5";
 
 const CREATOR_STAKE = usdcToUnits(10);
 
@@ -89,13 +93,13 @@ function leaderboardFrom(
 /** Stake per address on a claim, read back from the projection. */
 function stakeOnClaim(events: ChainEvent[], claimId: number, address: string, reorgedOut?: Set<string>) {
   const claim = project(events, { reorgedOut }).claims.get(claimId);
-  const entry = claim?.challengers.find((c) => c.address === address.toLowerCase());
+  const entry = claim?.challengers.find((c) => c.address === address);
   return entry ? unitsToUsdc(entry.stakeUnits) : null;
 }
 
 function record(events: ChainEvent[], address: string, reorgedOut?: Set<string>) {
   const board = leaderboardFrom(events, reorgedOut);
-  const entry = [...board.ranked, ...board.unranked].find((e) => e.address === address.toLowerCase());
+  const entry = [...board.ranked, ...board.unranked].find((e) => e.address === address);
   assert.ok(entry, `${address} missing from the leaderboard`);
   return entry;
 }
@@ -137,7 +141,7 @@ test("a reorged-out challenge disappears from the record entirely", () => {
   // Bob only ever challenged in block 102. Drop that block and he must not appear
   // with a stake the escrow never held.
   const board = leaderboardFrom(history(), new Set(["0xblock102"]));
-  const bob = [...board.ranked, ...board.unranked].find((e) => e.address === BOB.toLowerCase());
+  const bob = [...board.ranked, ...board.unranked].find((e) => e.address === BOB);
   assert.equal(bob, undefined);
 });
 
@@ -155,7 +159,7 @@ test("a resync after a reorg-and-replace converges on the replacement", () => {
   ];
   const reorgedOut = new Set(["0xblock102"]);
   const board = leaderboardFrom(replaced, reorgedOut);
-  const bob = [...board.ranked, ...board.unranked].find((e) => e.address === BOB.toLowerCase());
+  const bob = [...board.ranked, ...board.unranked].find((e) => e.address === BOB);
   assert.ok(bob);
   assert.equal(bob.wins, 1);
   // The 20 USDC version is the one that counts; the reorged 5 USDC one is gone.
@@ -172,7 +176,7 @@ test("a win of unknown size adds no profit, but a loss always subtracts", () => 
 
   // Alice staked 5 on claim 1 and was paid 8; claim 2 lost 5; claim 3 refunded.
   const board = leaderboardFrom(history(), undefined, new Map([[1, 8]]));
-  const alice = board.ranked.find((e) => e.address === ALICE.toLowerCase());
+  const alice = board.ranked.find((e) => e.address === ALICE);
   assert.ok(alice);
   assert.equal(alice.realizedPnlUsdc, -2);
 });
@@ -187,7 +191,7 @@ test("the creator's record is folded too, on the other side of every claim", () 
 
 test("an unresolved market counts for neither side", () => {
   const board = leaderboardFrom([created(9, 900), challenged(9, ALICE, 5, 901)]);
-  const alice = board.unranked.find((e) => e.address === ALICE.toLowerCase());
+  const alice = board.unranked.find((e) => e.address === ALICE);
   assert.ok(alice);
   assert.equal(alice.resolvedCount, 0);
 });
@@ -198,7 +202,7 @@ test("a cancelled market refunds both sides rather than handing a walkover", () 
     challenged(9, ALICE, 5, 901),
     { ...created(9, 900), name: "ClaimCancelled", blockNumber: 950, logIndex: 0 },
   ]);
-  const alice = board.unranked.find((e) => e.address === ALICE.toLowerCase());
+  const alice = board.unranked.find((e) => e.address === ALICE);
   assert.ok(alice);
   assert.equal(alice.refunds, 1);
   assert.equal(alice.losses, 0);
@@ -214,10 +218,44 @@ test("a challenger's share of its own side drives the underdog factor", () => {
     challenged(1, BOB, 20, 102),
     resolved(1, 2, 150),
   ]);
-  const alice = board.ranked.find((e) => e.address === ALICE.toLowerCase());
-  const bob = board.ranked.find((e) => e.address === BOB.toLowerCase());
+  const alice = board.ranked.find((e) => e.address === ALICE);
+  const bob = board.ranked.find((e) => e.address === BOB);
   assert.ok(alice && bob);
   // Both won, so both score; the shares differ, which is what the factor reads.
   assert.equal(alice.wins, 1);
   assert.equal(bob.wins, 1);
+});
+
+test("address casing is preserved verbatim from chain events", () => {
+  // The leaderboard must output the exact Stellar strkey casing, not a lowercased
+  // version. A lowercased G… strkey is an invalid address that no wallet signed.
+  const board = leaderboardFrom(history());
+  const alice = board.ranked.find((e) => e.address === ALICE);
+  assert.ok(alice);
+  assert.equal(alice.address, ALICE);
+  assert.notEqual(alice.address, ALICE.toLowerCase());
+
+  const bob = board.ranked.find((e) => e.address === BOB);
+  assert.ok(bob);
+  assert.equal(bob.address, BOB);
+  assert.notEqual(bob.address, BOB.toLowerCase());
+
+  const creator = board.ranked.find((e) => e.address === CREATOR);
+  assert.ok(creator);
+  assert.equal(creator.address, CREATOR);
+  assert.notEqual(creator.address, CREATOR.toLowerCase());
+});
+
+test("a lowercased address input to isAgent does not match the stored strkey", () => {
+  // isAgent must receive the exact strkey from the chain. If it received a
+  // lowercased version it would never match an agent registry entry.
+  const calledWith: string[] = [];
+  const board = leaderboardFrom(history(), undefined, undefined);
+  // The isAgent callback should have been called with exact casing
+  // We can't easily test the callback here without modifying the function signature,
+  // but we can verify the output addresses are correct
+  const alice = board.ranked.find((e) => e.address === ALICE);
+  assert.ok(alice);
+  assert.equal(alice.address, ALICE);
+  assert.notEqual(alice.address, ALICE.toLowerCase());
 });

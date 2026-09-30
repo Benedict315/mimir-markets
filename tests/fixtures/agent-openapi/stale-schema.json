@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mimir.example/schemas/agent-api-v1.schema.json",
+  "title": "Signed Mimir Agent API request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "agentId", "action", "idempotencyKey", "nonce", "signedAt", "body", "signature"],
+  "properties": {
+    "version": { "const": "v1" },
+    "agentId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+    "action": { "enum": ["register", "heartbeat", "proposeMarket", "createMarket", "publishReasoning", "vote", "stake", "listPositions", "listEarnings", "revoke", "dryRun"] },
+    "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "nonce": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "signedAt": { "type": "integer" },
+    "body": {},
+    "signature": {
+      "type": "string",
+      "description": "Base64 Ed25519 signature over the canonical request message, as SEP-43 signMessage returns it. Mirrors the check in lib/agents/api.ts.",
+      "pattern": "^[A-Za-z0-9+/]{16,}={0,2}$"
+    }
+  }
+}

@@ -15,6 +15,7 @@ import {
 import {
   DASHBOARD_EXPOSURE_LOAD_MORE,
   DASHBOARD_EXPOSURE_PAGE_SIZE,
+  DASHBOARD_EXPOSURE_PAGE_SIZE_MAX,
   summarizeDashboardFilteredExposure,
   type DashboardFilteredExposureSummary,
 } from "@/lib/dashboardUiPolicy";
@@ -850,6 +851,7 @@ function StakeHoldingsColumn({
   exposureLoading,
   exposureRefreshing,
   viewerAddress,
+  onLoadMoreExposure,
 }: {
   openKey: StakeHoldingOpenKey | null;
   setOpenKey: (key: StakeHoldingOpenKey | null) => void;
@@ -865,6 +867,8 @@ function StakeHoldingsColumn({
   /** Revalidación con datos en pantalla: atenuar lista y marcar busy. */
   exposureRefreshing: boolean;
   viewerAddress?: string | null;
+  /** Carga incremental explícita (fuente de verdad: lista filtrada del padre). */
+  onLoadMoreExposure?: (nextCount: number) => void;
 }) {
   const t = useTranslations("dashboard");
 
@@ -872,16 +876,31 @@ function StakeHoldingsColumn({
 
   const [visibleVsCount, setVisibleVsCount] = useState(DASHBOARD_EXPOSURE_PAGE_SIZE);
 
+  const safeVisibleVsCount = useMemo(() => {
+    const max = Math.max(DASHBOARD_EXPOSURE_PAGE_SIZE, DASHBOARD_EXPOSURE_PAGE_SIZE_MAX);
+    if (!Number.isFinite(visibleVsCount) || visibleVsCount <= 0) return DASHBOARD_EXPOSURE_PAGE_SIZE;
+    return Math.min(Math.floor(visibleVsCount), max);
+  }, [visibleVsCount]);
+
   useEffect(() => {
     setVisibleVsCount(DASHBOARD_EXPOSURE_PAGE_SIZE);
   }, [exposureFilterKey]);
 
   const visibleVsSlice = useMemo(
-    () => filteredVsList.slice(0, visibleVsCount),
-    [filteredVsList, visibleVsCount]
+    () => filteredVsList.slice(0, safeVisibleVsCount),
+    [filteredVsList, safeVisibleVsCount]
   );
 
-  const hasMoreVs = filteredVsList.length > visibleVsCount;
+  const hasMoreVs = filteredVsList.length > safeVisibleVsCount;
+
+  const handleLoadMore = () => {
+    const next = Math.min(
+      safeVisibleVsCount + DASHBOARD_EXPOSURE_LOAD_MORE,
+      filteredVsList.length
+    );
+    setVisibleVsCount(next);
+    onLoadMoreExposure?.(next);
+  };
 
   const exposureSummary = useMemo(
     () => summarizeDashboardFilteredExposure(filteredVsList, viewerAddress),
@@ -1053,14 +1072,7 @@ function StakeHoldingsColumn({
         {!isInitialExposureLoad && hasMoreVs ? (
           <button
             type="button"
-            onClick={() =>
-              setVisibleVsCount((c) =>
-                Math.min(
-                  c + DASHBOARD_EXPOSURE_LOAD_MORE,
-                  filteredVsList.length
-                )
-              )
-            }
+            onClick={handleLoadMore}
             className={`focus-ring mx-auto mt-1 flex min-h-[44px] w-full max-w-md items-center justify-center ${DASHBOARD_SURFACE_MUTED} px-4 py-2.5 font-display text-[10px] font-bold uppercase tracking-[0.18em] text-pv-muted transition-colors hover:border-pv-emerald/30 hover:bg-pv-emerald/[0.08] hover:text-pv-emerald sm:text-[11px]`}
           >
             {t("holdings.loadMore")}
@@ -1251,6 +1263,7 @@ export default function DashboardPortfolioSection({
   exposureLoading = false,
   exposureRefreshing = false,
   viewerAddress,
+  onLoadMoreExposure,
 }: {
   stakeHoldingsHeaderExtra?: ReactNode;
   /** Misma cadena que el input de búsqueda del filtro VS (filtra filas de tenencias mock). */
@@ -1267,6 +1280,8 @@ export default function DashboardPortfolioSection({
   exposureLoading?: boolean;
   exposureRefreshing?: boolean;
   viewerAddress?: string | null;
+  /** Notifica al padre la nueva página solicitada (para telemetría/rollout). */
+  onLoadMoreExposure?: (nextCount: number) => void;
 }) {
   const [openKey, setOpenKey] = useState<StakeHoldingOpenKey | null>(null);
 
@@ -1285,6 +1300,7 @@ export default function DashboardPortfolioSection({
         exposureLoading={exposureLoading}
         exposureRefreshing={exposureRefreshing}
         viewerAddress={viewerAddress}
+        onLoadMoreExposure={onLoadMoreExposure}
       />
       <RiskAndActionsColumn
         wins={wins}

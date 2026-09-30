@@ -180,6 +180,51 @@ export default function SettlementReceipt({
               </dd>
             </div>
           ) : null}
+
+          {view.evidenceHash ? (
+            <div className="sm:col-span-2">
+              <dt className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-pv-muted">
+                {t("receiptEvidenceHash")}
+              </dt>
+              <dd className="mt-1 font-mono text-xs text-pv-muted/90 break-all">
+                {view.evidenceHash}
+              </dd>
+            </div>
+          ) : null}
+
+          {view.citations && view.citations.length > 0 ? (
+            <div className="sm:col-span-2 border-t border-pv-ink/[0.08] pt-3">
+              <dt className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-pv-muted mb-2">
+                {t("receiptCitations")}
+              </dt>
+              <dd className="space-y-1.5">
+                {view.citations.map((c, i) => (
+                  <div
+                    key={`${c.url}-${i}`}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-pv-text/90"
+                  >
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-pv-cyan hover:text-pv-text transition-colors"
+                    >
+                      <ExternalLink size={11} aria-hidden />
+                      {c.domain || c.url}
+                    </a>
+                    {c.trustTier ? (
+                      <span className="rounded bg-pv-surface2/60 px-1.5 py-0.5 text-[10px] uppercase font-mono text-pv-muted">
+                        {c.trustTier}
+                      </span>
+                    ) : null}
+                    <span className="font-mono text-[11px] text-pv-muted">
+                      {c.contentHash.slice(0, 10)}…{c.contentHash.slice(-6)}
+                    </span>
+                  </div>
+                ))}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
 

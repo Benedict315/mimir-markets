@@ -39,7 +39,9 @@ traction-wallets.env
 # ========================
 # Testing & coverage
 # ========================
+.cache/node-tests/
 coverage/
+coverage/node/
 .nyc_output/
 *.lcov
 __pycache__/

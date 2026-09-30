@@ -1,0 +1,19 @@
+{
+  "reporter": ["text-summary", "lcov"],
+  "reportsDirectory": "coverage",
+  "include": [
+    "lib/fees.ts",
+    "lib/payout.ts",
+    "lib/money.ts",
+    "lib/paid-pass.ts",
+    "lib/paid-revenue.ts",
+    "lib/x402/buyer.ts",
+    "lib/agents/registry.ts",
+    "lib/agents/spend-permissions.ts"
+  ],
+  "lines": 80,
+  "branches": 70,
+  "functions": 70,
+  "statements": 80,
+  "checkCoverage": true
+}

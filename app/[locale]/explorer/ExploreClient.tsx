@@ -26,6 +26,7 @@ import {
   MIN_STAKE_OPTIONS,
   normalizeExploreMinStake,
   type ExploreSort,
+  type ExplorerView,
 } from "@/lib/exploreFilters";
 import type {
   ChallengeOpportunitiesResponse,
@@ -55,8 +56,6 @@ const filterPillActive = "border-pv-emerald/50 bg-pv-emerald text-pv-bg";
 const filterPillInactive =
   "border-pv-ink/[0.15] bg-transparent text-pv-muted hover:border-pv-ink/[0.28] hover:text-pv-text";
 
-type ArenaViewMode = "open" | "ai" | "closed";
-
 function getOpportunitySearchBlob(opportunity: ChallengeOpportunity) {
   return [
     opportunity.candidate.claimText,
@@ -81,9 +80,10 @@ function sortOpportunities(
   const next = [...opportunities];
 
   if (sort === "expiring") {
-    return next.sort(
-      (a, b) => getOpportunityDeadlineValue(a) - getOpportunityDeadlineValue(b)
-    );
+    return next.sort((a, b) => {
+      const diff = getOpportunityDeadlineValue(a) - getOpportunityDeadlineValue(b);
+      return diff !== 0 ? diff : String(b.id).localeCompare(String(a.id));
+    });
   }
 
   if (sort === "strength" || sort === "highest") {
@@ -91,11 +91,12 @@ function sortOpportunities(
       if (b.candidate.confidenceScore !== a.candidate.confidenceScore) {
         return b.candidate.confidenceScore - a.candidate.confidenceScore;
       }
-      return b.claimStrengthScore - a.claimStrengthScore;
+      const diff = b.claimStrengthScore - a.claimStrengthScore;
+      return diff !== 0 ? diff : String(b.id).localeCompare(String(a.id));
     });
   }
 
-  return next;
+  return next.sort((a, b) => String(b.id).localeCompare(String(a.id)));
 }
 
 function IntelligenceDossierSkeleton() {
@@ -143,14 +144,15 @@ export default function ExploreClient() {
   const [allVS, setAllVS] = useState<VSData[]>([]);
   const [opportunities, setOpportunities] = useState<ChallengeOpportunity[]>([]);
   const [vsFreshness, setVsFreshness] = useState<VSCacheFreshness | null>(null);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [quickFilterMenuOpen, setQuickFilterMenuOpen] = useState(false);
   const [minDraft, setMinDraft] = useState("");
-  const [activeView, setActiveView] = useState<ArenaViewMode>("open");
   const [, startViewTransition] = useTransition();
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement>(null);
@@ -183,6 +185,7 @@ export default function ExploreClient() {
           if (requestId === requestIdRef.current) {
             setAllVS(mergePendingVS(results.items));
             setVsFreshness(results.cache);
+            setNextCursor(results.nextCursor ?? null);
           }
         })
         .catch((error) => {
@@ -253,6 +256,25 @@ export default function ExploreClient() {
     },
     [locale, opportunitiesEnabled]
   );
+
+  const loadMoreVS = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const results = await getAllVSSnapshot({ cursor: nextCursor });
+      setAllVS((prev) => {
+        // Simple deduplication by id in case of overlap
+        const existingIds = new Set(prev.map((vs) => vs.id));
+        const newItems = results.items.filter((vs) => !existingIds.has(vs.id));
+        return mergePendingVS([...prev, ...newItems]);
+      });
+      setNextCursor(results.nextCursor ?? null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore]);
 
   useEffect(() => {
     void loadExploreData({ showPageLoading: true });
@@ -365,7 +387,7 @@ export default function ExploreClient() {
     opportunities,
   ]);
 
-  const { cat, sort, search, minStake, needsChallengers, expiringSoon, underdogOnly } =
+  const { cat, sort, search, minStake, needsChallengers, expiringSoon, underdogOnly, view: activeView } =
     filters;
 
   useEffect(() => {
@@ -480,12 +502,13 @@ export default function ExploreClient() {
   }, [quickFilterMenuOpen, sortMenuOpen]);
 
   const switchView = useCallback(
-    (nextView: ArenaViewMode) => {
+    (nextView: ExplorerView) => {
       startViewTransition(() => {
         if (nextView === "ai") {
-          updateFilters({ needsChallengers: false });
+          updateFilters({ needsChallengers: false, view: nextView });
+        } else {
+          updateFilters({ view: nextView });
         }
-        setActiveView(nextView);
       });
     },
     [startViewTransition, updateFilters]
@@ -1314,6 +1337,18 @@ export default function ExploreClient() {
               </motion.div>
             )}
           </AnimatePresence>
+          {nextCursor && activeView !== "ai" && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={loadMoreVS}
+                disabled={loadingMore}
+                className="rounded border border-pv-border/25 bg-pv-surface px-6 py-3 font-display text-sm font-bold uppercase tracking-tight text-pv-text transition-colors hover:border-pv-ink/[0.15] disabled:opacity-50"
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          )}
         </section>
       </AnimatedItem>
     </PageTransition>

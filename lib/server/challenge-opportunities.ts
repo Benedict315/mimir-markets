@@ -248,7 +248,10 @@ async function buildChallengeOpportunitiesForLocale(locale: "en" | "es") {
     if (b.claimStrengthScore !== a.claimStrengthScore) {
       return b.claimStrengthScore - a.claimStrengthScore;
     }
-    return b.candidate.confidenceScore - a.candidate.confidenceScore;
+    if (b.candidate.confidenceScore !== a.candidate.confidenceScore) {
+      return b.candidate.confidenceScore - a.candidate.confidenceScore;
+    }
+    return String(b.id).localeCompare(String(a.id));
   });
 }
 

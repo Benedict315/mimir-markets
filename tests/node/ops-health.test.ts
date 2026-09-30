@@ -30,6 +30,7 @@ function healthy(overrides: Partial<HealthSnapshot> = {}): HealthSnapshot {
     rpc: { attempts: 500, failures: 1 },
     facilitator: { attempts: 200, failures: 0 },
     sources: { attempts: 100, failures: 3 },
+    agentBalancesUsdc: { oracle: 10, market_creator: 50 },
     ...overrides,
   };
 }
@@ -315,4 +316,30 @@ test("every monitored worker has something that writes its heartbeat", () => {
       `no beat("${worker}") or reportingPoll("${worker}") writer found`,
     );
   }
+});
+
+// ── Agent balances ────────────────────────────────────────────────────────────
+
+test("a null agent balance (untrusted or unconfigured) alarms critical", () => {
+  const report = evaluateHealth(healthy({ agentBalancesUsdc: { oracle: null } }), NOW);
+  assert.equal(report.status, "critical");
+  assert.deepEqual(
+    report.alarms.map((a) => a.id),
+    ["agent.oracle.untrusted"],
+  );
+});
+
+test("agent balance escalates warn then critical", () => {
+  const at = (balance: number) =>
+    evaluateHealth(healthy({ agentBalancesUsdc: { oracle: balance } }), NOW);
+
+  assert.equal(at(DEFAULT_THRESHOLDS.agentBalanceWarnUsdc + 0.1).status, "ok");
+  assert.equal(at(DEFAULT_THRESHOLDS.agentBalanceWarnUsdc).status, "warn");
+  assert.equal(at(DEFAULT_THRESHOLDS.agentBalanceCriticalUsdc).status, "critical");
+  assert.equal(at(0.01).status, "critical");
+});
+
+test("agent balance metrics are included in the report", () => {
+  const report = evaluateHealth(healthy({ agentBalancesUsdc: { oracle: 5.5 } }), NOW);
+  assert.equal(report.measurements.agentBalancesUsdc.oracle, 5.5);
 });

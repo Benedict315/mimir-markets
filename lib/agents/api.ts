@@ -1,4 +1,5 @@
 import { sha256Hex } from "@/lib/content-hash";
+import { checkWriteAllowed, type Pausable, type WriteGateResult } from "@/lib/ops/flags";
 
 export const AGENT_API_VERSION = "v1";
 export const AGENT_API_ACTIONS = [
@@ -12,6 +13,23 @@ export const AGENT_API_ACTIONS = [
 ] as const;
 export type AgentApiAction = (typeof AGENT_API_ACTIONS)[number];
 
+/**
+ * Actions that put an owner's USDC at risk, gated on `byoa_funded_actions` so the
+ * launch-gate document and the code agree: until an operator enables it, an agent
+ * can register, read and dry-run but cannot move money.
+ *
+ * Lives here, not in the route, because the published wire contract
+ * (`lib/ops/agent-api-openapi.ts`) reads it from the same place the route does. A
+ * second copy in the docs is a copy that drifts.
+ */
+export const AGENT_FUNDED_ACTIONS: readonly AgentApiAction[] = ["createMarket", "stake", "vote"];
+
+/** The rollout flag every funded action additionally requires. */
+export const AGENT_FUNDED_FEATURE = "byoa_funded_actions" as const;
+
+/** The rollout flag that gates registration. */
+export const AGENT_REGISTRY_FEATURE = "byoa_registry" as const;
+
 export interface SignedAgentRequest<T = unknown> {
   version: typeof AGENT_API_VERSION;
   agentId: string;
@@ -22,6 +40,27 @@ export interface SignedAgentRequest<T = unknown> {
   body: T;
   /** Base64 Ed25519 signature over {@link agentRequestMessage}, as SEP-43 returns it. */
   signature: string;
+}
+
+/**
+ * The incident switch that stops each agent action. Anything absent has none on
+ * purpose: reads, dry runs, proposals (they move no money) and every revocation,
+ * which is how an owner contains an incident and so must work during one.
+ */
+export const AGENT_ACTION_PAUSE: Partial<Record<AgentApiAction, Pausable>> = {
+  register: "agent_registration",
+  createMarket: "create_market",
+  stake: "stake",
+  vote: "stake",
+};
+
+/** Pause gate for one agent action; `allowed: true` for actions with no switch. */
+export function agentActionPauseGate(
+  action: AgentApiAction,
+  env: Record<string, string | undefined> = process.env,
+): WriteGateResult {
+  const capability = AGENT_ACTION_PAUSE[action];
+  return capability ? checkWriteAllowed({ capability }, env) : { allowed: true };
 }
 
 export const AGENT_REQUEST_MAX_SKEW_MS = 5 * 60_000;
@@ -61,6 +100,26 @@ export function agentRequestMessage(request: Omit<SignedAgentRequest, "signature
 }
 
 /**
+ * Domain separator for the register action's SECOND signature.
+ *
+ * `register` needs two proofs: the owner grants the record, and the operator
+ * proves it controls the hot key it is about to be handed. They are separate
+ * messages because they are separate claims — one signature must never satisfy
+ * both — and the leading `Mimir …` line is the domain separation that keeps a
+ * proof harvested from another surface from verifying here.
+ *
+ * Exported so the published wire contract carries the exact bytes an operator has
+ * to sign; the route and the generator must not each hold their own copy.
+ */
+export const AGENT_OPERATOR_PROOF_DOMAIN = "Mimir agent operator proof";
+
+export function operatorProofMessage(agentId: string, operatorWallet: string): string {
+  // NOT lowercased. A strkey is case-sensitive base32; folding the case names a
+  // wallet that does not exist.
+  return `${AGENT_OPERATOR_PROOF_DOMAIN}\nagent: ${agentId}\noperator: ${operatorWallet.trim()}`;
+}
+
+/**
  * Validate the envelope.
  *
  * `requireSignature: false` is for API-key callers: the server fills the nonce and
@@ -79,6 +138,7 @@ export function validateAgentRequestEnvelope(
     if (request.version !== AGENT_API_VERSION) errors.push("unsupported version");
     if (!(AGENT_API_ACTIONS as readonly string[]).includes(request.action)) errors.push("unknown action");
     if (!/^[a-z0-9][a-z0-9-]{2,63}$/.test(request.agentId)) errors.push("invalid agentId");
+  if (!/^[GHS][A-Z2-7]{54}$/.test(request.agentId)) errors.push("invalid seller address format");
     if (request.idempotencyKey && request.idempotencyKey.length > 128) errors.push("invalid idempotencyKey");
     if (signedRequestPayloadBytes(request.body) > MAX_SIGNED_REQUEST_PAYLOAD_BYTES) {
       errors.push(`payload exceeds ${MAX_SIGNED_REQUEST_PAYLOAD_BYTES} bytes`);

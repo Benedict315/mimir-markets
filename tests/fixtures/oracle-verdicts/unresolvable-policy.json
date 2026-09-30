@@ -1,0 +1,194 @@
+{
+  "description": "Synthetic oracle verdicts (no real claims, wallets or amounts) run through applySettlementPolicy with the oracle's tierVerdict. NaN and Infinity cannot be written in JSON and are covered in the test file. Used by tests/node/oracle-unresolvable-policy.test.ts (#99).",
+  "cases": [
+    {
+      "name": "confidence 90 settles firm",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 90,
+        "explanation": "Price closed above target."
+      },
+      "expected": {
+        "outcome": "firm",
+        "verdict": "CREATOR_WINS",
+        "confidence": 90,
+        "explanation": "Price closed above target."
+      }
+    },
+    {
+      "name": "confidence exactly 80 settles firm",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 80,
+        "explanation": "Price closed below target."
+      },
+      "expected": {
+        "outcome": "firm",
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 80,
+        "explanation": "Price closed below target."
+      }
+    },
+    {
+      "name": "confidence 100 (upper valid bound) settles firm",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 100,
+        "explanation": "Official result."
+      },
+      "expected": {
+        "outcome": "firm",
+        "verdict": "CREATOR_WINS",
+        "confidence": 100,
+        "explanation": "Official result."
+      }
+    },
+    {
+      "name": "confidence 70 settles contested",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 70,
+        "explanation": "Close call."
+      },
+      "expected": {
+        "outcome": "contested",
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 70,
+        "explanation": "[CONTESTED] Close call."
+      }
+    },
+    {
+      "name": "confidence exactly 60 settles contested",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 60,
+        "explanation": "Close call."
+      },
+      "expected": {
+        "outcome": "contested",
+        "verdict": "CREATOR_WINS",
+        "confidence": 60,
+        "explanation": "[CONTESTED] Close call."
+      }
+    },
+    {
+      "name": "DRAW passes through",
+      "input": {
+        "verdict": "DRAW",
+        "confidence": 40,
+        "explanation": "Match ended level."
+      },
+      "expected": {
+        "outcome": "draw",
+        "verdict": "DRAW",
+        "confidence": 40,
+        "explanation": "Match ended level."
+      }
+    },
+    {
+      "name": "model-issued UNRESOLVABLE is refunded with its summary untouched",
+      "input": {
+        "verdict": "UNRESOLVABLE",
+        "confidence": 95,
+        "explanation": "Question is ambiguous."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "model-unresolvable",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 95,
+        "explanation": "Question is ambiguous."
+      }
+    },
+    {
+      "name": "model-issued UNRESOLVABLE at low confidence keeps its model reason",
+      "input": {
+        "verdict": "UNRESOLVABLE",
+        "confidence": 10,
+        "explanation": "Source page was empty."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "model-unresolvable",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 10,
+        "explanation": "Source page was empty."
+      }
+    },
+    {
+      "name": "confidence 59 is refunded as low-confidence",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 59,
+        "explanation": "Weak signal."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "low-confidence",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 59,
+        "explanation": "[LOW CONFIDENCE — refunded] Weak signal."
+      }
+    },
+    {
+      "name": "confidence 0 (lower valid bound) is refunded as low-confidence",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 0,
+        "explanation": "No signal."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "low-confidence",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 0,
+        "explanation": "[LOW CONFIDENCE — refunded] No signal."
+      }
+    },
+    {
+      "name": "confidence 150 is refunded as invalid-confidence, not paid out",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 150,
+        "explanation": "Odd input."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "invalid-confidence",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 0,
+        "explanation": "[LOW CONFIDENCE — refunded: invalid confidence] Odd input."
+      }
+    },
+    {
+      "name": "confidence 100.01 is refunded as invalid-confidence",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 100.01,
+        "explanation": "Odd input."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "invalid-confidence",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 0,
+        "explanation": "[LOW CONFIDENCE — refunded: invalid confidence] Odd input."
+      }
+    },
+    {
+      "name": "negative confidence is refunded as invalid-confidence",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": -5,
+        "explanation": "Odd input."
+      },
+      "expected": {
+        "outcome": "refund",
+        "reason": "invalid-confidence",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 0,
+        "explanation": "[LOW CONFIDENCE — refunded: invalid confidence] Odd input."
+      }
+    }
+  ]
+}

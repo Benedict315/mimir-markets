@@ -3,6 +3,18 @@
     "title": "Mimir Markets",
     "description": "1v1 prediction challenges settled by AI. No referees. No arguments. Mimir decides."
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "common": {
     "back": "Back",
     "connect": "Connect",
@@ -13,6 +25,18 @@
     "cancel": "Cancel",
     "skipToContent": "Skip to content",
     "vs": "VS"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "cache": {
     "label": "Index freshness",
@@ -26,6 +50,18 @@
     "refreshing": "Refreshing",
     "sourceIndex": "indexed cache",
     "sourceContract": "on-chain read"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "header": {
     "challenge": "+ Challenge",
@@ -52,6 +88,18 @@
     "disconnect": "Disconnect",
     "mobileNavAria": "Main navigation"
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "footer": {
     "creditLine": "© 2026 Mimir. All rights reserved. Powered by the Mimir oracle on Stellar",
     "linkNetworkProtocol": "Network protocol",
@@ -59,6 +107,18 @@
     "linkSecurity": "Security",
     "linkApi": "API",
     "legalNavAria": "Legal and product links"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "home": {
     "vsOfDay": "VS of the day",
@@ -156,6 +216,18 @@
     "manifestPillar3Body": "When conditions resolve, settlement executes immediately and payouts are distributed automatically.",
     "volumeSettled": "USDC Settled"
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "create": {
     "challengeSectionTitle": "WHAT WILL HAPPEN?",
     "challengeQuestionExamples": [
@@ -164,26 +236,86 @@
         "creator": "BTC reaches or exceeds $100k this week",
         "opponent": "BTC stays below $100k this week"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       {
         "question": "e.g. Argentina beats Brazil?",
         "creator": "Argentina wins the match",
         "opponent": "Brazil wins or draw"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       {
         "question": "e.g. Will it rain tomorrow in Buenos Aires?",
         "creator": "Rain in Buenos Aires that day",
         "opponent": "No rain in Buenos Aires that day"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       {
         "question": "e.g. Will GPT-5 be announced before June?",
         "creator": "OpenAI announces GPT-5 before June 1",
         "opponent": "No GPT-5 announcement before June 1"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       {
         "question": "e.g. Will Hozier win a 2027 Grammy?",
         "creator": "Hozier wins at least one Grammy in 2027",
         "opponent": "Hozier wins no Grammy in 2027"
-      }
+      },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
     ],
     "whatWillHappen": "What will happen?",
     "ibet": "I bet",
@@ -251,6 +383,18 @@
       "graphic_content": "Graphic content",
       "other_policy": "Other policy issue"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "submittedPending": "Transaction submitted to Stellar. It may take a moment to appear.",
     "walletTx": "Wallet tx",
     "consensusTx": "Consensus tx",
@@ -283,17 +427,65 @@
         "hint": "Many challengers, proportional payout",
         "detail": "Challengers share your stake in proportion to their own. The more join one side, the thinner each winner's profit — and your profit comes from the losing side, not from Mimir."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "duel": {
         "label": "Duel",
         "hint": "One rival, equal stakes",
         "detail": "Exactly one rival must match your stake, and the winner takes the two-person pot. A draw or an unresolvable outcome refunds both sides in full."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "fixed_odds": {
         "label": "Fixed Odds",
         "hint": "You guarantee a total return",
         "detail": "You guarantee challengers a fixed total-return multiple, backed by your own stake. Capacity is bounded by your unreserved liquidity, not by a slot count."
-      }
+      },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "marketType": "Market type",
     "oddsMode": "Odds mode",
     "category": "Category",
@@ -318,6 +510,15 @@
     "settlementRuleHint": "Add custom judging instructions when the market needs more than the raw question text.",
     "questionStrengthHint": "Name the outcome, the subject, and the exact window you want Mimir to judge.",
     "sourceStrengthHint": "Use a source page that will still show the exact result when the deadline arrives.",
+    "resolutionSourceTypeLabel": "Source class (optional)",
+    "resolutionSourceTypeNone": "Choose a source class",
+    "resolutionSourceTypeOfficial": "Official publisher",
+    "resolutionSourceTypeMedia": "Independent media",
+    "resolutionSourceTypeOther": "Other source",
+    "resolutionSourceTargetLabel": "Exact result to read (optional)",
+    "resolutionSourceTargetPlaceholder": "For example, the final score shown on the official match page",
+    "resolutionSourceMetadataHint": "Optional creator-provided metadata is added to the on-chain settlement rule. It is not independently verified; the source URL remains the primary resolution reference.",
+    "resolutionSourceCanonicalUrl": "Canonical URL stored on-chain",
     "settlementStrengthHint": "The clearer your settlement rule is, the easier the claim is to resolve consistently.",
     "marketTypes": {
       "binary": "Binary",
@@ -327,10 +528,34 @@
       "prop": "Prop",
       "custom": "Custom"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "oddsModes": {
       "pool": "Pool odds",
       "fixed": "Fixed odds"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "presets": {
       "1h": "1h",
       "24h": "24h",
@@ -338,6 +563,18 @@
       "1week": "1 week",
       "1month": "1 month"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "pageTitleBefore": "SET THE TERMS AND",
     "pageTitleAccent": "INITIALIZE CHALLENGE",
     "demoModeHint": "Demo mode uses hosted server signers so the flow stays reliable even if browser wallets are unstable.",
@@ -369,6 +606,18 @@
       "media": "Media source",
       "other": "Other source"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "useRecommendedRule": "Use recommended rules",
     "qualityReview": "Demo readiness checklist",
     "qualityReviewHint": "Quick checks for your question, verification source, and settlement rule. This list is informative only and does not block publishing.",
@@ -391,50 +640,182 @@
         "questionHint": "Name the teams, competition, and timeframe directly in the claim.",
         "settlementTemplate": "Resolve this against the official final result of the linked event. State whether extra time, penalties, or overtime count."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "weather": {
         "sourceHint": "Use a weather source that clearly names the location and date being measured.",
         "questionHint": "Name the city or region and the exact day being judged.",
         "settlementTemplate": "Resolve this using the weather reported for the named location and date on the linked source. Use the exact precipitation or temperature condition written here."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "deportes": {
         "sourceHint": "Use the official match, league, or scoreboard page for the exact event you want to settle.",
         "questionHint": "Name the teams, competition, and timeframe directly in the claim.",
         "settlementTemplate": "Resolve this against the official final result of the linked event. State whether extra time, penalties, or overtime count."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "clima": {
         "sourceHint": "Use a weather source that clearly names the location and date being measured.",
         "questionHint": "Name the city or region and the exact day being judged.",
         "settlementTemplate": "Resolve this using the weather reported for the named location and date on the linked source. Use the exact precipitation or temperature condition written here."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "crypto": {
         "sourceHint": "Use a price page that will still show the asset and quoted value at settlement time.",
         "questionHint": "Name the asset, threshold, and deadline explicitly.",
         "settlementTemplate": "Resolve this using the visible spot price on the linked source at the deadline time. Apply any threshold or line exactly as written."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "culture": {
         "sourceHint": "Prefer the official publication, awards page, or primary entertainment source behind the claim.",
         "questionHint": "Anchor the claim to a concrete release, award, ranking, or publication event.",
         "settlementTemplate": "Resolve this only from the linked official or authoritative source. Do not infer beyond the exact published result."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "tech": {
         "sourceHint": "Use an official product blog, press release, or changelog that will still reflect the announced fact at settlement.",
         "questionHint": "Name the product, company, and the concrete milestone or date window being judged.",
         "settlementTemplate": "Resolve this only from the linked official source at the deadline. Treat “announced” as a public, attributable statement from the named party."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "cultura": {
         "sourceHint": "Prefer the official publication, awards page, or primary entertainment source behind the claim.",
         "questionHint": "Anchor the claim to a concrete release, award, ranking, or publication event.",
         "settlementTemplate": "Resolve this only from the linked official or authoritative source. Do not infer beyond the exact published result."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "custom": {
         "sourceHint": "Use the official match, league, or scoreboard page for the exact event you want to settle.",
         "questionHint": "",
         "settlementTemplate": "Resolve this exactly as written using the linked source only. If the wording or source is ambiguous, mark it unresolvable."
-      }
+      },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "totalReturnLabel": "Total return promised to challengers",
     "totalReturnHint": "Challengers get {multiple}x their stake back on a win, funded from your stake. At this multiple your market can absorb about {capacity} USDC of challenges.",
     "bestOfTarget": "Best of {n}: the first side to {wins} wins takes the series. Draws and refunds do not count toward it."
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "explore": {
     "title": "THE ARENA",
@@ -517,6 +898,18 @@
       "media": "Media source",
       "other": "Other source"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "readyToChallenge": "Ready to challenge",
     "readyToChallengeHint": "Open claims you can join right now, ranked by claim strength.",
     "results": "{count} result",
@@ -554,6 +947,18 @@
         "titleLine2": "Over 7 rounds",
         "body": "Predicting high-intensity technical exchanges. System intelligence\nsuggests a 68% probability of extended duration."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "f1": {
         "imageAlt": "Formula 1 featured spotlight — Franco Colapinto",
         "pill": "Featured event",
@@ -561,14 +966,62 @@
         "titleLine2": "Finishes P17",
         "body": "Austin race rhythm rewards tire discipline.\nOur stack prices P17 as the modal outcome versus opening lines."
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "alvarez": {
         "imageAlt": "Argentina national team — Julián Álvarez World Cup spotlight",
         "pill": "Featured event",
         "titleLine1": "Julián Álvarez +6 goals",
         "titleLine2": "FIFA World Cup 2026",
         "body": "Attack volume and draw path point to upside on the goals line.\nOur read: more than six goals across the FIFA World Cup 2026."
-      }
-    }
+      },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+    },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "quality": {
     "claimStrength": "Claim Strength",
@@ -582,6 +1035,18 @@
       "fair": "Fair",
       "weak": "Weak"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "signals": {
       "question_specific": "Specific question",
       "positions_clear": "Clear opposing positions",
@@ -590,6 +1055,18 @@
       "structured_category": "Structured category",
       "sufficient_time": "Enough time before deadline"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "moderationLabel": "Moderation",
     "moderationAnalyzing": "Analyzing with AI…",
     "moderationAllowed": "Allowed by policy.",
@@ -615,7 +1092,31 @@
       "medical_privacy": "Medical privacy",
       "graphic_content": "Graphic content",
       "other_policy": "Other policy issue"
-    }
+    },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "settlement": {
     "title": "Settlement explanation",
@@ -632,6 +1133,18 @@
       "medium": "Medium confidence",
       "low": "Low confidence"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "consensusHint": "The claim only settled after validator consensus on the final outcome.",
     "receipt": "Settlement receipt",
     "receiptOutcome": "Outcome",
@@ -647,12 +1160,26 @@
       "draw": "Draw",
       "unresolvable": "Marked unresolvable"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "receiptPot": "Total pot",
     "receiptRemainingEscrow": "Remaining escrow",
     "receiptWinner": "Winner address",
     "receiptOutcomeNone": "No outcome recorded",
     "receiptValueUnavailable": "—",
     "receiptChainNote": "Amounts and outcome come from the on-chain claim record. Challenger payouts stay pull-based after settlement.",
+    "receiptCitations": "Research Citations",
+    "receiptEvidenceHash": "Evidence Hash",
     "receiptStatus": {
       "loading": "Loading",
       "invalid": "Not settled",
@@ -661,6 +1188,18 @@
       "dependency_failure": "Unavailable",
       "ready": "Final"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "receiptStatusHint": {
       "loading": "Fetching the contract-backed settlement receipt.",
       "invalid": "This claim is not settled yet, so no settlement receipt is available.",
@@ -668,7 +1207,63 @@
       "disconnected": "Wallet or network is disconnected. Reconnect to verify the live on-chain receipt.",
       "dependency_failure": "Settlement fields could not be mapped from the claim record. Retry after the index catches up.",
       "ready": "Contract-backed settlement receipt for this claim."
-    }
+    },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
+  "copyTrading": {
+    "title": "Copy Trading Permissions",
+    "permissionStatus": {
+      "loading": "Checking Contract",
+      "invalid": "Invalid Policy",
+      "stale": "Stale",
+      "disconnected": "Wallet Disconnected",
+      "dependency_failure": "Chain RPC Unavailable",
+      "paused": "Execution Paused",
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "ready": "Contract Backed"
+    },
+    "permissionStatusHint": {
+      "loading": "Querying on-chain allowance and policy bounds.",
+      "invalid": "Permission bounds or addresses violate contract constraints.",
+      "stale": "Policy state may be out of date. Re-querying on-chain allowance.",
+      "disconnected": "Connect owner wallet to manage or verify execution permissions.",
+      "dependency_failure": "Unable to verify Soroban SAC allowance. Retrying when RPC recovers.",
+      "paused": "Copy trading execution is currently paused by platform policy.",
+      "revoked": "This execution permission has been revoked by the owner.",
+      "expired": "This execution permission has passed its expiration timestamp.",
+      "ready": "Active execution permission backed by on-chain USDC allowance."
+    },
+    "allowance": "On-chain Allowance",
+    "signedAllowance": "Signed Allowance",
+    "perPosition": "Max per position",
+    "dailyCap": "Daily cap",
+    "maxLoss": "Max realized loss",
+    "signalAgent": "Signal agent",
+    "executionAgent": "Execution agent"
   },
   "dashboard": {
     "title": "MY DASHBOARD",
@@ -743,6 +1338,18 @@
         "resolved": "Settled",
         "cancelled": "Cancelled"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "yourStake": "Your stake",
       "winEstimate": "Win estimate",
       "riskSectionAria": "Risk allocation profile",
@@ -752,6 +1359,18 @@
         "moderate": "Moderate",
         "aggressive": "Aggressive"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "quickActionsAria": "Quick actions",
       "quickActionsTitle": "Quick actions",
       "actionAnalysis": "Browse arena",
@@ -769,6 +1388,18 @@
       "poolPill": {
         "closed": "Closed"
       },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
       "demoBadge": "Sample",
       "demoVsBadge": "Demo VS",
       "loadMore": "Load more",
@@ -803,6 +1434,18 @@
           "winEstimate": "27 USDC",
           "returnMultiple": "1.35×"
         },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
         "colapinto": {
           "title": "Franco Colapinto · Finishes P17",
           "meta": "F1 — Circuit of the Americas — 14/05/2026 08:45",
@@ -812,6 +1455,18 @@
           "winEstimate": "18 USDC",
           "returnMultiple": "1.50×"
         },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
         "alvarez": {
           "title": "Julián Álvarez · Over 7 goals · FIFA World Cup 2026",
           "meta": "FIFA World Cup — Group stage window",
@@ -820,12 +1475,60 @@
           "stake": "35 USDC",
           "winEstimate": "52 USDC",
           "returnMultiple": "1.49×"
-        }
-      }
+        },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+      },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "statsSectionAria": "Performance summary: challenges won, challenges lost, win rate, and total winnings",
     "kpiStatsLoading": "Loading performance summary",
     "tabsSectionAria": "Search and filter your challenges"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "vsDetail": {
     "eyebrow": "Live Arena",
@@ -884,6 +1587,12 @@
     "totalReturnMultipleHint": "total return",
     "lowUpsideWarning": "Low upside: you risk {stake} to win {profit}. This side already holds most of the money, so the remaining payout is thin.",
     "profitComesFromLosingSide": "Profit comes from the losing side, not from Mimir. Mimir takes no cut of a draw, an unresolvable outcome or a cancellation.",
+    "payoutFeeLine": "Fee on profit: {fee}. Nothing is taken from the stake itself.",
+    "payoutFeeSplit": "(platform {platform} · agent owner {owner})",
+    "payoutFeeChecking": "Checking this market's fee terms…",
+    "payoutFeeUnknown": "Fee terms unavailable — these figures are the gross payout, before fees, so your net will be no higher. Your stake back is unaffected.",
+    "payoutFeeClamped": "This market's fee terms exceed what the contract allows, so the fee is capped at your profit. Your stake back is never touched.",
+    "principalGuarantee": "Your stake back is never reduced by fees.",
     "poolPayoutFormula": "Pool payout: your {stake} returns plus your proportional share of the creator's {creatorStake}. Challenger side after you join: {challengerStake}.",
     "privateInviteRequired": "This challenge is private",
     "privateInviteHint": "You need the creator's private invite link to view and join this challenge.",
@@ -977,10 +1686,34 @@
       "prop": "Prop",
       "custom": "Custom"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "oddsModes": {
       "pool": "Pool odds",
       "fixed": "Fixed odds"
     },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
     "designPreviewLifecycleHint": "Design only: tap a lifecycle step to preview that phase (no on-chain state changes).",
     "designPreviewReset": "Use live sample state",
     "designPreviewResolutionSummary": "Preview only: the creator side is shown as the prevailing outcome. No consensus transaction was executed.",
@@ -994,6 +1727,18 @@
     "underdogBadgeHint": "The challenger side is the thin one here: a win returns about {multiple}x your stake. Payout asymmetry only — not a statement about what is likely to happen.",
     "bestOfCta": "Best of {n}"
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "stamp": {
     "provenDecided": "Mimir has decided",
     "won": "Winner {address}",
@@ -1002,12 +1747,36 @@
     "youWon": "You win",
     "lost": "You lost"
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "terminal": {
     "searchingEvidence": "AI searching for evidence...",
     "analyzing": "Analyzing {url}...",
     "comparingSources": "Comparing sources...",
     "fetchingResults": "Fetching results...",
     "issuingVerdict": "Issuing verdict"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "badges": {
     "open": "Open",
@@ -1028,6 +1797,18 @@
     "claimPayoutRejected": "Payout signature rejected in your wallet.",
     "claimPayoutCollected": "Payout collected.",
     "claimPayoutChecking": "Checking your payout..."
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "wallet": {
     "noWallet": "No Stellar wallet found. Install Freighter, xBull, Lobstr or Hana.",
@@ -1062,6 +1843,18 @@
     "trustlineAdding": "Confirm in wallet...",
     "trustlineRejected": "Trustline signature rejected in your wallet."
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "categories": {
     "sports": "Sports",
     "weather": "Weather",
@@ -1073,13 +1866,49 @@
     "cultura": "Culture",
     "custom": "Custom"
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "strip": {
     "creator": "Creator",
     "rival": "Rival",
     "waiting": "Waiting..."
   },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
   "poolBadge": {
     "atStake": "at stake"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "xmtpVs": {
     "createDuel": "Create private duel",
@@ -1109,6 +1938,24 @@
     "installationsLimitGuide": "Your inbox hit the device installation limit. Open XMTP’s inbox tools, revoke installs you no longer need, then tap Retry below.",
     "openInboxTools": "Open inbox tools",
     "retry": "Retry",
+    "retrying": "Retrying…",
+    "failureEyebrow": "Messaging problem",
+    "failureEscalated": "Still failing after several attempts. Close other Mimir tabs, check your connection, then retry.",
+    "failureNotRetryable": "Retrying will not help here — this needs a different wallet or a change outside Mimir.",
+    "failureTechnicalDetails": "Technical details (for support)",
+    "failureSignatureDeclined": "You declined the signature that creates your messaging key, so chat can't start. Approve it once and chat will open.",
+    "failureUnsupportedWallet": "This wallet can't sign messages, which chat needs to create your messaging key. Connect a wallet that supports signing and retry.",
+    "failureInvalidIdentity": "Your messaging key came out malformed, so chat can't start. Disconnect and reconnect your wallet to rebuild it.",
+    "failureInstallationsLimit": "Your inbox reached XMTP's device installation limit. Revoke installs you no longer need, then retry.",
+    "failureBlockedByTab": "Chat is open in another Mimir tab. Close that tab, or tap Retry to take over here.",
+    "failureNetwork": "Network issue reaching XMTP. Check your connection and retry.",
+    "failureTimeout": "XMTP took too long to answer. Retry, or close other Mimir tabs and try again.",
+    "failureStreamLost": "The live connection to this chat dropped.",
+    "failureSendFailed": "This message didn't send.",
+    "streamLostEyebrow": "Live updates paused",
+    "streamLostStaleHint": "Messages already loaded are still here, but new ones may not appear until the chat reconnects.",
+    "sendFailedEyebrow": "Message not sent",
+    "sendFailedDraftKept": "Your text is back in the box — press Send to try again.",
     "emptyThread": "No messages yet. Say hello.",
     "emptyThreadHint": "Only you and your rival can read this thread.",
     "messageFromYou": "You",
@@ -1118,10 +1965,7 @@
     "sendingMessage": "Sending…",
     "messageQueued": "Delivering…",
     "disclaimer": "Messages are delivered over XMTP (E2E encrypted). They are not stored on Mimir servers.",
-    "blockedByTabTitle": "Chat open in another tab",
-    "blockedByTabDesc": "Close the other tab to use chat here. It will reconnect automatically.",
     "chatPreviewEyebrow": "Layout preview",
-    "chatPreviewBanner": "Your rival hasn't joined XMTP yet. Once they sign in to Mimir (or any XMTP app) with their wallet, tap Retry.",
     "chatPreviewAriaLabel": "Demo conversation layout",
     "chatPreviewSrHint": "Sample messages between rival {peer} and you {you}.",
     "chatPreviewBubblePeer": "Hey — we good to settle on the linked source at deadline?",
@@ -1129,6 +1973,25 @@
     "chatPreviewBubblePeerShort": "👍",
     "chatPreviewInputPlaceholder": "Unavailable until the thread opens",
     "chatPreviewFootnote": "Sample layout only — nothing is sent over XMTP until the rival is reachable."
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  },
+  "agentDirectory": {
+    "emptyStateTitle": "No agents found",
+    "emptyStateDescription": "No agents are configured in this deploy. Start by creating the first agent.",
+    "errorTitle": "Could not load agents",
+    "errorDescription": "There was a problem reading the directory. This might be a temporary dependency failure or a network issue.",
+    "createAction": "Create an agent"
   },
   "messagesHub": {
     "eyebrow": "End-to-end encrypted · XMTP",
@@ -1172,12 +2035,48 @@
       "not_accepted": "Chat unlocks when the VS is accepted.",
       "waiting_opponent": "Waiting for a fixed rival before DM opens.",
       "multi_challenger": "Multi-challenger VS — XMTP is 1v1 only for now."
-    }
+    },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
+  }
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "emergingNarratives": {
     "title": "EMERGING NARRATIVES",
     "lead": "Opportunities to generate new challenges from emerging signals and storylines.",
     "comingSoon": "COMMING SOON"
+  },
+  "fees": {
+    "loadFailed": "Could not read the fee schedule from the network.",
+    "agentWhatYouEarn": "What you earn",
+    "agentDescription1": "When somebody else profits through your agent you take <strong>{agent}%</strong> of their profit, and the protocol takes <strong>{platform}%</strong>. Fees are charged on profit only, never on the stake - so a winner never receives less than they put in, and a loser is charged nothing.",
+    "agentDescription2": "Using your own agent costs you no agent fee. You would only be paying yourself.",
+    "basketWhatYouEarn": "What you earn",
+    "basketDescription1": "When somebody profits by following your basket you take <strong>{basket}%</strong> of their profit. The agents' owners keep their <strong>{agent}%</strong> and the protocol takes <strong>{platform}%</strong> - all charged on profit only.",
+    "basketDescription2": "Following your own basket costs you no basket fee.",
+    "followDescription": "On profit: {platform}% protocol, {agent}% to the agents' owners, {basketPart}. Losses are never charged.",
+    "followBasketIsOwn": "and no basket fee � this basket is yours",
+    "followBasketCreator": "{basket}% to whoever composed it"
   },
   "reasoningFeed": {
     "title": "Agent reasoning",

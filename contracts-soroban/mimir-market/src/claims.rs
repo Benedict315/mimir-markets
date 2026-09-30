@@ -24,6 +24,10 @@ pub fn create_claim(env: &Env, creator: Address, params: CreateParams) -> Result
     if params.question.is_empty() {
         return Err(Error::EmptyQuestion);
     }
+    // Bound the metadata this claim will commit to persistent storage BEFORE
+    // any money moves: an over-long claim is refused with nothing escrowed and
+    // no claim id consumed, so a rejected caller can retry with less text.
+    util::validate_create_metadata(env, &params)?;
 
     let usdc = storage::usdc(env)?;
     escrow::pull(env, &usdc, &creator, params.stake_amount)?;
@@ -103,6 +107,13 @@ pub fn create_claim(env: &Env, creator: Address, params: CreateParams) -> Result
     storage::set_claim(env, id, &claim);
     storage::set_challengers(env, id, &Vec::new(env));
 
+    events::EscrowSeeded {
+        id,
+        funder: creator.clone(),
+        amount: params.stake_amount,
+        escrow_type: String::from_str(env, "creator_stake"),
+    }
+    .publish(env);
     events::ClaimCreated {
         id,
         creator,
@@ -111,10 +122,10 @@ pub fn create_claim(env: &Env, creator: Address, params: CreateParams) -> Result
     .publish(env);
     events::FeePolicySnapshotted {
         id,
-        platform_fee_bps: snapshot.platform_fee_bps,
-        agent_owner_fee_bps: snapshot.agent_owner_fee_bps,
-        platform_recipient: snapshot.platform_recipient.clone(),
-        agent_owner_recipient: snapshot.agent_owner_recipient.clone(),
+        platform_fee_bps: claim.fees.platform_fee_bps,
+        agent_owner_fee_bps: claim.fees.agent_owner_fee_bps,
+        platform_recipient: claim.fees.platform_recipient.clone(),
+        agent_owner_recipient: claim.fees.agent_owner_recipient.clone(),
     }
     .publish(env);
     if let Some(agent) = params.agent_owner_recipient {
@@ -150,7 +161,8 @@ pub fn challenge_claim(
             return Err(Error::AlreadyChallenged);
         }
     }
-    if claim.challenger_count >= claim.market.max_challengers {
+    let max_challengers = claim.market.max_challengers.min(MAX_CHALLENGERS);
+    if claim.challenger_count >= max_challengers || list.len() >= max_challengers {
         return Err(Error::ClaimFull);
     }
     if stake_amount < MIN_STAKE {
@@ -229,10 +241,29 @@ pub fn challenge_claim(
     });
     storage::set_challengers(env, claim_id, &list);
 
+    let prev_state = claim.state;
     claim.total_challenger_stake = next_total_challenger_stake;
     claim.challenger_count = next_challenger_count;
     claim.state = ClaimState::Active;
     storage::set_claim(env, claim_id, &claim);
+
+    events::EscrowSeeded {
+        id: claim_id,
+        funder: challenger.clone(),
+        amount: stake_amount,
+        escrow_type: String::from_str(env, "challenger_stake"),
+    }
+    .publish(env);
+    
+    if prev_state != ClaimState::Active {
+        events::ClaimStateTransitioned {
+            id: claim_id,
+            from_state: prev_state as u32,
+            to_state: ClaimState::Active as u32,
+            timestamp: env.ledger().timestamp(),
+        }
+        .publish(env);
+    }
 
     if util::is_fixed_odds(env, &claim.market.odds_mode) {
         events::FixedOddsLiquidityReserved {
@@ -272,9 +303,26 @@ pub fn transition_deadline(env: &Env, claim_id: u64) -> Result<(), Error> {
         return Err(Error::Timelocked);
     }
 
+    events::DeadlineReached {
+        id: claim_id,
+        deadline: claim.deadline,
+        challenger_count: claim.challenger_count,
+        total_staked: claim.creator_stake,
+    }
+    .publish(env);
+
     claim.state = ClaimState::Cancelled;
     let creator = claim.creator.clone();
     let refund = claim.creator_stake;
+    
+    events::ClaimStateTransitioned {
+        id: claim_id,
+        from_state: ClaimState::Open as u32,
+        to_state: ClaimState::Cancelled as u32,
+        timestamp: env.ledger().timestamp(),
+    }
+    .publish(env);
+    
     storage::set_claim(env, claim_id, &claim);
 
     // Cancellation is a refund: no fee. Same parked-flag semantics as
@@ -361,6 +409,14 @@ pub fn cancel_claim(env: &Env, claim_id: u64) -> Result<(), Error> {
     claim.state = ClaimState::Cancelled;
     let creator = claim.creator.clone();
     storage::set_claim(env, claim_id, &claim);
+
+    events::ClaimStateTransitioned {
+        id: claim_id,
+        from_state: ClaimState::Open as u32,
+        to_state: ClaimState::Cancelled as u32,
+        timestamp: env.ledger().timestamp(),
+    }
+    .publish(env);
 
     // Cancellation is a refund: no fee. A refund is not profit, so no fee leg
     // can exist, and a failed push parks the refund as a withdrawable balance

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { BlueprintHeading } from "@/components/BlueprintGrid";
 import { CreateBasketForm } from "@/components/baskets/CreateBasketForm";
 import { listDirectoryAgents } from "@/lib/server/agent-directory";
-import { FEE_SCHEDULE } from "@/lib/fees";
+import { FeeBreakdown } from "@/components/fees/FeeBreakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -35,19 +35,7 @@ export default async function CreateBasketPage() {
           />
         </div>
 
-        <section className="mt-6 border border-pv-ink/[0.1] bg-pv-surface/30 p-4">
-          <h2 className="font-mono text-[10px] uppercase tracking-wider text-pv-muted">
-            What you earn
-          </h2>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-pv-muted">
-            When somebody profits by following your basket you take{" "}
-            <strong className="text-pv-text">{(FEE_SCHEDULE.basketCreatorBps / 100).toFixed(2)}%</strong>{" "}
-            of their profit. The agents&apos; owners keep their{" "}
-            {(FEE_SCHEDULE.agentOwnerBps / 100).toFixed(2)}% and the protocol takes{" "}
-            {(FEE_SCHEDULE.platformBps / 100).toFixed(2)}% — all charged on profit only.
-            Following your own basket costs you no basket fee.
-          </p>
-        </section>
+        <FeeBreakdown context="basket" />
 
         <div className="mt-6">
           <Link href="/baskets" className="text-sm text-pv-muted transition-colors hover:text-pv-text">
@@ -58,3 +46,4 @@ export default async function CreateBasketPage() {
     </div>
   );
 }
+

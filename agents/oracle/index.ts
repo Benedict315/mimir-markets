@@ -53,7 +53,13 @@ applyWorkerGeminiKey("ORACLE_GEMINI_API_KEY");
 
 import { requireEnv, requireAnyLLMKey, applyWorkerGeminiKey, createThrottle } from "../../lib/agent-bootstrap";
 import { kellyFraction } from "../../lib/kelly";
-import { type VerdictPayload } from "../../lib/verdict";
+import {
+  type VerdictPayload,
+  type ResearchCitation,
+  validateResearchCitation,
+  validateCitationsList,
+  MAX_VERDICT_CITATIONS,
+} from "../../lib/verdict";
 import {
   parseLLMVerdictWithRetry,
   VERDICT_LLM_SCHEMA,
@@ -82,6 +88,9 @@ import {
 } from "../../lib/stellar";
 import { fetchWithBudget, payingWalletFor } from "../../lib/x402/buyer";
 import { reportingPoll } from "../../lib/ops/heartbeat";
+import { isPaused } from "../../lib/ops/flags";
+// Explicit settlement outcome + named UNRESOLVABLE (refund) reasons (#99).
+import { applySettlementPolicy, describeDecision } from "../../lib/oracle/unresolvable-policy";
 import { unitsToUsdc, usdcToUnits, formatAtomicUsdc } from "../../lib/usdc";
 import {
   fetchEvidence as fetchEvidenceShared,
@@ -100,6 +109,9 @@ import {
   type CouncilVote,
 } from "./council-vote";
 import { normalizeQuorum } from "../../lib/council/quorum";
+// Confidence tiers + fetcher-trust cap: pure and fixture-calibrated (#97).
+import { applyFetcherTrust, tierVerdict } from "../../lib/oracle/confidence-tiers";
+import { RiskManager } from "../../lib/oracle-risk";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS      = Number(process.env.ORACLE_POLL_INTERVAL_MS ?? "60000");
@@ -154,6 +166,7 @@ async function throttledLLM(
 const challengedClaimIds = new Set<number>();
 // Track evaluated-but-not-challenged (to avoid repeated LLM calls)
 const evaluatedClaimIds = new Set<number>();
+const riskManager = new RiskManager();
 
 requireEnv(["ORACLE_SECRET"]);
 requireAnyLLMKey();
@@ -358,54 +371,11 @@ function verdictToSide(
 // Oracle plays few, high-conviction markets — cap Kelly at 25% of bankroll.
 const KELLY_CAP = 0.25;
 
-// Confidence tiers govern how the oracle commits a verdict.
-// HIGH      → settle as the LLM said.
-// MEDIUM    → still settle, but the explanation gets a [CONTESTED] prefix so
-//             the UI can flag low-trust resolutions.
-// LOW       → force the verdict to UNRESOLVABLE so the contract refunds.
-// Keeps the "refund the ambiguous" principle out of marketing slides and
-// into actual on-chain behavior.
-const CONFIDENCE_HIGH_MIN = 80; // ≥ : settle as-is
-const CONFIDENCE_MED_MIN  = 60; // 60–79: settle but mark contested
-                                // < 60 : downgrade to UNRESOLVABLE
-
-function tierVerdict(verdict: OracleVerdict): OracleVerdict {
-  if (verdict.verdict === "UNRESOLVABLE" || verdict.verdict === "DRAW") return verdict;
-  if (verdict.confidence >= CONFIDENCE_HIGH_MIN) return verdict;
-  if (verdict.confidence >= CONFIDENCE_MED_MIN) {
-    return {
-      ...verdict,
-      explanation: `[CONTESTED] ${verdict.explanation}`.slice(0, 500),
-    };
-  }
-  // Low confidence: refund rather than guess
-  return {
-    verdict:     "UNRESOLVABLE",
-    confidence:  verdict.confidence,
-    explanation: `[LOW CONFIDENCE — refunded] ${verdict.explanation}`.slice(0, 500),
-  };
-}
-
-// Cap confidence and tag the audit trail when the evidence wasn't fetched
-// through a deterministic API (CoinGecko). Scraped HTML — even via Jina —
-// can drift, be paginated, or be partially blocked, so we don't allow a
-// firm HIGH-tier settlement off it.
-const MAX_CONFIDENCE_NON_API = 75;
-
-function applyFetcherTrust(
-  verdict: OracleVerdict,
-  fetcher: EvidenceFetcherKind | "none",
-): OracleVerdict {
-  if (fetcher === "coingecko-api") return verdict;
-  if (verdict.verdict === "UNRESOLVABLE") return verdict;
-  const cappedConfidence = Math.min(verdict.confidence, MAX_CONFIDENCE_NON_API);
-  const tag = fetcher === "jina" ? "[via-jina]" : fetcher === "direct" ? "[via-scrape]" : "[no-fetch]";
-  return {
-    ...verdict,
-    confidence: cappedConfidence,
-    explanation: `${tag} ${verdict.explanation}`.slice(0, 500),
-  };
-}
+// Confidence tiers govern how the oracle commits a verdict: HIGH (≥80) settles
+// as the LLM said, MEDIUM (60–79) settles with a [CONTESTED] prefix, LOW (<60)
+// is forced to UNRESOLVABLE so the contract refunds. Non-API evidence is capped
+// at 75 first. Both helpers (tierVerdict, applyFetcherTrust) live unchanged in
+// lib/oracle/confidence-tiers.ts, calibrated against fixtures (#97).
 
 // Sports markets close betting at kickoff, so the claim is "expired" (settleable)
 // while the match may still be in progress. Defer settlement until the match is
@@ -543,14 +513,45 @@ async function settle(claim: ClaimOnChain): Promise<boolean> {
     council:         councilCommitment,
   });
   const trusted      = applyFetcherTrust(rawVerdict, evidence.fetcher);
-  const verdict      = tierVerdict(trusted);
+  // The policy names the outcome (firm / contested / draw / refund + reason)
+  // instead of inferring it by diffing strings against rawVerdict, which logged
+  // a model-issued UNRESOLVABLE as "FIRM" and fetcher-tagged verdicts as
+  // "CONTESTED". It also refunds a decisive verdict with an invalid confidence
+  // instead of settling a side on it (#99).
+  const decision     = applySettlementPolicy(trusted, tierVerdict);
+  const verdict      = decision.verdict;
 
-  const tierTag =
-    verdict.verdict !== rawVerdict.verdict ? "REFUND" :
-    verdict.explanation !== rawVerdict.explanation ? "CONTESTED" :
-    "FIRM";
+  // Attach canonical research citations to the verdict payload
+  const citations: ResearchCitation[] = [];
+  if (claim.resolution_url && claim.resolution_url.startsWith("http")) {
+    const canonical = validateResearchCitation({
+      url: claim.resolution_url,
+      contentHash: evidenceHash,
+      capturedAt: Date.now(),
+      trustTier: evidence.fetcher === "coingecko-api" ? "primary" : evidence.fetcher === "none" ? "unverified" : "corroborating",
+      fetcher: evidence.fetcher,
+      title: claim.question ? claim.question.slice(0, 100) : undefined,
+    });
+    if (canonical) {
+      citations.push(canonical);
+    }
+  }
+  if (Array.isArray(rawVerdict.citations) && rawVerdict.citations.length > 0) {
+    const validatedLlmCitations = validateCitationsList(rawVerdict.citations);
+    if (validatedLlmCitations.ok && validatedLlmCitations.citations) {
+      for (const c of validatedLlmCitations.citations) {
+        if (!citations.some((existing) => existing.url === c.url)) {
+          citations.push(c);
+        }
+      }
+    }
+  }
+  if (citations.length > 0) {
+    verdict.citations = citations.slice(0, MAX_VERDICT_CITATIONS);
+    console.log(`[settle] Citations (${verdict.citations.length}): ${verdict.citations.map((c) => c.domain).join(", ")}`);
+  }
 
-  console.log(`[settle] Verdict: ${verdict.verdict} (${verdict.confidence}%) [${tierTag}]`);
+  console.log(`[settle] Verdict: ${verdict.verdict} (${verdict.confidence}%) [${describeDecision(decision)}]`);
   console.log(`[settle] Evidence hash: ${evidenceHash}`);
   console.log(`[settle] "${verdict.explanation.slice(0, 100)}..."`);
 
@@ -558,14 +559,27 @@ async function settle(claim: ClaimOnChain): Promise<boolean> {
   // transaction cannot carry ~100 payouts inside its ledger-entry footprint, so
   // each challenger pulls with `claim_challenger_payout` afterwards. The oracle's
   // job ends here and the market is final.
-  const settled = await resolveClaim(ORACLE.signer, claim.id, {
-    winner_side:   verdictToSide(verdict.verdict),
-    summary:       verdict.explanation,
-    confidence:    verdict.confidence,
-    evidence_hash: evidenceHash,
-  });
+  let settledOnChain: { txHash: string; explorerUrl?: string; pending?: boolean };
+  try {
+    settledOnChain = await resolveClaim(ORACLE.signer, claim.id, {
+      winner_side:   verdictToSide(verdict.verdict),
+      summary:       verdict.explanation,
+      confidence:    verdict.confidence,
+      evidence_hash: evidenceHash,
+    });
+  } catch (err) {
+    const depErr = new DependencyFailureError(
+      `resolve_claim failed for claim #${claim.id}: ${err instanceof Error ? err.message : String(err)}`,
+      "rpc",
+      true,
+      0,
+      err,
+    );
+    console.warn(`[settle] ${describeBackoffError(depErr)}`);
+    throw depErr;
+  }
 
-  console.log(`[settle] ✓ Resolved — ${settled.explorerUrl ?? settled.txHash}`);
+  console.log(`[settle] ✓ Resolved — ${settledOnChain.explorerUrl ?? settledOnChain.txHash}`);
 
   // Cross-entropy bonuses AFTER the on-chain settle: informative jurors split
   // the pool, parrots and dissenters-from-evidence get nothing. Best-effort —
@@ -574,13 +588,13 @@ async function settle(claim: ClaimOnChain): Promise<boolean> {
     try {
       // The send response may be pending. Soroban, not the worker or DB, is the
       // authority on whether this claim really resolved to this evidence hash.
-      const confirmed = settled.pending ? null : await fetchClaim(claim.id);
-      if (!isConfirmedCouncilSettlement(confirmed, verdictToSide(verdict.verdict), evidenceHash, Boolean(settled.pending))) {
+      const confirmed = settledOnChain.pending ? null : await fetchClaim(claim.id);
+      if (!isConfirmedCouncilSettlement(confirmed, verdictToSide(verdict.verdict), evidenceHash, Boolean(settledOnChain.pending))) {
         console.warn(`[settle] Bonus for claim #${claim.id} withheld: resolution not confirmed on chain`);
       } else {
         const receipts = await payCouncilBonuses({
           votes: bonusVotes, poolAtomic: COUNCIL_BONUS_ATOMIC, payerWallet: ORACLE,
-          claimId: claim.id, contractId: CONTRACT_ID, settlementTxHash: settled.txHash,
+          claimId: claim.id, contractId: CONTRACT_ID, settlementTxHash: settledOnChain.txHash,
         });
         for (const r of receipts) {
           console.log(`[settle] Bonus ${formatAtomicUsdc(r.amountAtomic)} USDC to ${r.slug}: ${r.status}${r.txHash ? ` (${getExplorerTxUrl(r.txHash)})` : ""}`);
@@ -636,6 +650,12 @@ async function challengeIfMispriced(claim: ClaimOnChain): Promise<void> {
     return;
   }
 
+  const preGate = riskManager.canChallenge(claim, CHALLENGE_STAKE_USDC);
+  if (!preGate.ok) {
+    console.log(`[risk] skip claim #${claim.id}: ${preGate.reason}`);
+    return;
+  }
+
   // Evaluate early
   console.log(`\n[challenge] Evaluating claim #${claim.id}: "${claim.question.slice(0, 60)}..."`);
   evaluatedClaimIds.add(claim.id);
@@ -669,6 +689,12 @@ async function challengeIfMispriced(claim: ClaimOnChain): Promise<void> {
   const kellyStake = Math.max(CHALLENGE_STAKE_USDC, Math.min(bankroll * kelly, bankroll * 0.1));
   const stakeUsdc = Math.round(kellyStake * 100) / 100;
 
+  const gate = riskManager.canChallenge(claim, stakeUsdc);
+  if (!gate.ok) {
+    console.log(`[risk] skip claim #${claim.id}: ${gate.reason}`);
+    return;
+  }
+
   console.log(`[challenge] Kelly: ${(kelly * 100).toFixed(1)}% of USDC bankroll → ${stakeUsdc} USDC stake`);
   console.log(`[challenge] Staking ${stakeUsdc} USDC on challenger side...`);
 
@@ -677,6 +703,7 @@ async function challengeIfMispriced(claim: ClaimOnChain): Promise<void> {
   const staked = await challengeClaim(ORACLE.signer, claim.id, stakeUsdc);
 
   challengedClaimIds.add(claim.id);
+  riskManager.recordChallenge(claim, stakeUsdc);
   console.log(`[challenge] ✓ Staked ${stakeUsdc} USDC — ${staked.explorerUrl ?? staked.txHash}`);
   console.log(`[challenge] Oracle: "${verdict.explanation.slice(0, 120)}"`);
 }
@@ -689,8 +716,15 @@ async function poll(): Promise<void> {
   try {
     total = await getClaimCount();
   } catch (err) {
-    console.warn("[oracle] Failed to read the claim count:", err);
-    return;
+    const depErr = new DependencyFailureError(
+      `Failed to read the claim count: ${err instanceof Error ? err.message : String(err)}`,
+      "rpc",
+      true,
+      0,
+      err,
+    );
+    console.warn(`[oracle] ${describeBackoffError(depErr)}`);
+    throw depErr;
   }
 
   console.log(`\n[oracle] ── Poll at ${new Date().toISOString()} ── ${total} claims`);
@@ -706,6 +740,9 @@ async function poll(): Promise<void> {
       expiredActive.push(claim);
       continue;
     }
+    if (claim.state !== "open" && claim.state !== "active") {
+      riskManager.release(claim.id);
+    }
 
     try {
       // Challenge mispriced claims while the challenge window is open.
@@ -716,7 +753,9 @@ async function poll(): Promise<void> {
         claim.deadline > now
       ) {
         const before = challengedClaimIds.size;
-        await challengeIfMispriced(claim);
+        await withBackoff("oracle", () => challengeIfMispriced(claim), {
+          policy: ORACLE_BACKOFF,
+        });
         if (challengedClaimIds.size > before) challenged.push(id);
       }
     } catch (err) {
@@ -724,12 +763,24 @@ async function poll(): Promise<void> {
     }
   }
 
+  // Checked here as well as in resolveClaim: settle() researches and calls the LLM
+  // (and may buy evidence over x402) before it ever reaches the gated write.
+  // Challenges above are left to the stake switch, so the two pause independently.
+  if (expiredActive.length > 0 && isPaused("oracle_settlement")) {
+    console.warn(
+      `[oracle] Settlement is paused — ${expiredActive.length} expired claim(s) wait for the next poll.`,
+    );
+    expiredActive.length = 0;
+  }
+
   expiredActive.sort((a, b) => a.deadline - b.deadline);
   for (let i = 0; i < expiredActive.length; i++) {
     const claim = expiredActive[i];
     try {
-      const resolved = await settle(claim);
-      if (!resolved) continue; // deferred (e.g. sports match not final) — retry next poll
+      const resolved = await withBackoff("oracle", () => settle(claim), {
+        policy: ORACLE_BACKOFF,
+      });
+      if (!resolved) continue; // deferred or backed off — retry next poll
       settled.push(claim.id);
       if (i < expiredActive.length - 1 && SETTLEMENT_DELAY_MS > 0) {
         console.log(`[oracle] Cooling down ${(SETTLEMENT_DELAY_MS / 60000).toFixed(1)} min before next settlement...`);

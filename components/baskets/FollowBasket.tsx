@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 
-import { FEE_SCHEDULE } from "@/lib/fees";
+import { FeeBreakdown } from "@/components/fees/FeeBreakdown";
 import { useWallet } from "@/lib/wallet";
 
 /**
@@ -119,14 +119,8 @@ export function FollowBasket({
 
       {error && <p className="mt-2 text-[12px] text-pv-danger">{error}</p>}
 
-      <p className="mt-3 text-[11px] text-pv-muted">
-        On profit: {(FEE_SCHEDULE.platformBps / 100).toFixed(2)}% protocol,{" "}
-        {(FEE_SCHEDULE.agentOwnerBps / 100).toFixed(2)}% to the agents&apos; owners,{" "}
-        {isOwn
-          ? "and no basket fee — this basket is yours."
-          : `${(FEE_SCHEDULE.basketCreatorBps / 100).toFixed(2)}% to whoever composed it.`}{" "}
-        Losses are never charged.
-      </p>
+      <FeeBreakdown context="follow" isOwn={isOwn} />
     </div>
   );
 }
+

@@ -7,6 +7,7 @@
  */
 
 import { fetchWithBudget, payingWalletFor, type PayingWallet } from "../../../lib/x402/buyer";
+import { outboundTraceHeaders } from "../../../lib/ops/trace-http";
 import { getCouncilWallet } from "../../../lib/agent-wallets";
 import { usdcToUnits } from "../../../lib/usdc";
 import {
@@ -85,9 +86,11 @@ export async function buyPeerReasoning(args: {
       `&persona=${encodeURIComponent(seller.slug)}`;
 
     try {
+      // Trace header on the same request as the payment: a peer's paid read and
+      // the persona's decision cycle are one trace. Inert to the x402 proof.
       const result = await fetchWithBudget(url, payer, remainingUnits, {
         method: "GET",
-        headers: { accept: "application/json" },
+        headers: { accept: "application/json", ...outboundTraceHeaders() },
       });
       if (!result.response.ok) continue;
 

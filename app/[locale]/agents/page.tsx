@@ -233,7 +233,7 @@ export default async function AgentsPage({
   const window: TimeWindow = rawWindow && isTimeWindow(rawWindow) ? rawWindow : "all";
   // Never let a roster query take the whole page down: the event feed below is the
   // page's older, independent half and still renders without a database.
-  const roster = await listAgentsWithPerformance(window).catch(() => []);
+  const roster = await listAgentsWithPerformance(window).catch(() => null);
   const councilPersonas = getActiveCouncilPersonas();
   const streaks = deriveStreaks(events);
 
@@ -529,3 +529,4 @@ export default async function AgentsPage({
     </div>
   );
 }
+

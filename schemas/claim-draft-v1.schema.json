@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sourceSummary": {
+      "type": "string",
+      "description": "One or two short sentences summarizing the source."
+    },
+    "rejectionReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Why no candidates were produced, if applicable."
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "sports",
+              "weather",
+              "crypto",
+              "culture",
+              "custom"
+            ]
+          },
+          "claimText": {
+            "type": "string"
+          },
+          "sideA": {
+            "type": "string"
+          },
+          "sideB": {
+            "type": "string"
+          },
+          "deadlineAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "primaryResolutionSource": {
+            "type": "string",
+            "format": "uri"
+          },
+          "settlementRule": {
+            "type": "string"
+          },
+          "ambiguityFlags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 0,
+            "maxItems": 4
+          },
+          "confidenceScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "category",
+          "claimText",
+          "sideA",
+          "sideB",
+          "deadlineAt",
+          "timezone",
+          "primaryResolutionSource",
+          "settlementRule",
+          "ambiguityFlags",
+          "confidenceScore"
+        ]
+      }
+    }
+  },
+  "required": [
+    "sourceSummary",
+    "rejectionReason",
+    "candidates"
+  ]
+}

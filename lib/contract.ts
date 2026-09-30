@@ -59,6 +59,7 @@ import { guardChallenge, toCanonicalMode } from "./market-modes";
 import { checkWriteAllowed } from "./ops/flags";
 import { availableCreatorLiquidityUnits } from "./payout";
 import { decodeHash32Hex } from "./content-hash";
+import { getDemoSecret } from "./demo-signers";
 import type { VSCacheFreshness } from "./vs-freshness";
 
 export type { StellarSigner } from "./stellar";
@@ -199,6 +200,8 @@ export interface VSData {
   challenger_addresses?: string[];
   remaining_escrow?: number;
   challenger_claims?: number;
+  evidence_hash?: string;
+  context_hash?: string;
   // Resolution-request flow (optional, surfaces off-chain UI state)
   creator_requested_resolve?: boolean;
   challenger_requested_resolve?: boolean;
@@ -244,6 +247,7 @@ export interface ClaimWriteResult extends ContractWriteResult {
 export interface VSFeedSnapshot {
   items: VSData[];
   cache: VSCacheFreshness | null;
+  nextCursor?: number | null;
 }
 
 export interface VSDetailSnapshot {
@@ -423,6 +427,75 @@ async function mapWithConcurrency<T, R>(
   }
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
+}
+
+/**
+ * Maximum number of ids accepted by a single `batchGetClaims` call.
+ *
+ * Mirrors `types.rs::MAX_BATCH_SIZE = 50`. Callers that need more claims
+ * should split the id list and call multiple times.
+ *
+ * Today's implementation reads ids via concurrency-limited individual
+ * `readClaimRaw` calls (same RPC semantics, independent reads). Once the new
+ * contract is deployed and the bindings are regenerated with
+ * `npm run stellar:bindings`, the implementation will be updated to use the
+ * native `get_claims_batch` contract function, which reduces 2 × N simulated
+ * invocations to a single simulation over N claim entries.
+ *
+ * The public surface of this function will not change on that upgrade.
+ */
+export const BATCH_GET_CLAIMS_MAX = 50;
+
+/**
+ * Batch-read up to {@link BATCH_GET_CLAIMS_MAX} claims by id.
+ *
+ * Returns an array whose length equals `ids.length`. Each slot holds a decoded
+ * `ClaimData` when the id exists on chain, or `null` when it does not. The slot
+ * positions mirror the input positions exactly, so callers can zip the result
+ * against their id list without any bookkeeping:
+ *
+ * ```ts
+ * const claims = await batchGetClaims([1, 999, 3]);
+ * // [ClaimData | null, null, ClaimData | null]
+ * ```
+ *
+ * @throws When `ids.length > BATCH_GET_CLAIMS_MAX` — callers must chunk.
+ *
+ * @remarks
+ * **Accounting and trust.** This is a pure read — no USDC is moved, no
+ * authorisation is required. The returned values are identical to what
+ * `getClaim` would return one by one. All invariants (stake accounting,
+ * remaining_escrow, fee snapshots) are unchanged.
+ *
+ * **Money, permissions, secrets.** None. Safe to call from any context,
+ * including unsigned browser flows.
+ *
+ * **Migration.** No contract migration is required: `get_claims_batch` is an
+ * additive entry point. After the contract is deployed, regenerate the bindings
+ * with `npm run stellar:bindings` and update the implementation inside this
+ * function to use `client.get_claims_batch({ ids: ids.map(BigInt) })`.
+ *
+ * **Challenger rosters excluded.** The contract's `get_claims_batch` does not
+ * include challenger lists to keep the ledger-entry footprint O(n). This
+ * TypeScript helper fetches rosters separately, matching the semantics of
+ * `readClaimRaw`. Callers that do not need the roster can pass the result of
+ * `batchGetClaimsNoRoster` for a 2× RPC saving.
+ */
+export async function batchGetClaims(ids: number[]): Promise<(ClaimData | null)[]> {
+  if (ids.length > BATCH_GET_CLAIMS_MAX) {
+    throw new Error(
+      `batchGetClaims: too many ids (${ids.length}). ` +
+      `Split into chunks of at most ${BATCH_GET_CLAIMS_MAX}.`,
+    );
+  }
+  if (ids.length === 0) return [];
+  if (!isMarketConfigured()) return ids.map(() => null);
+
+  // Each id is resolved independently with full read-claim semantics
+  // (includes the challenger roster). A missing id returns null — it does not
+  // throw. Concurrency is bounded by mapWithConcurrency so the public RPC is
+  // not overwhelmed even for a full 50-id batch.
+  return mapWithConcurrency(ids, (id) => readClaimRaw(id));
 }
 
 async function readClaimsRange(startId: number, count: number): Promise<(ClaimData | null)[]> {
@@ -820,16 +893,28 @@ export async function getAllVSFast(): Promise<VSFeedSnapshot> {
   return getAllVSDirect();
 }
 
-export async function getAllVSDirect(): Promise<VSFeedSnapshot> {
+export async function getAllVSDirect(opts?: { cursor?: number; limit?: number }): Promise<VSFeedSnapshot> {
   const count = await getClaimCount();
-  if (count <= 0) return { items: [], cache: makeLiveFreshness() };
+  if (count <= 0) return { items: [], cache: makeLiveFreshness(), nextCursor: null };
 
   const all = await readClaimsRange(1, count);
+  let sortedItems = (all.filter(Boolean) as ClaimData[])
+    .map(mapClaimToVS)
+    .sort((a, b) => b.id - a.id);
+  
+  if (opts?.cursor) {
+    sortedItems = sortedItems.filter(item => item.id < opts.cursor!);
+  }
+
+  const limit = opts?.limit ?? 50;
+  const hasMore = sortedItems.length > limit;
+  const paginatedItems = hasMore ? sortedItems.slice(0, limit) : sortedItems;
+  const nextCursor = hasMore ? paginatedItems[paginatedItems.length - 1].id : null;
+
   return {
-    items: (all.filter(Boolean) as ClaimData[])
-      .map(mapClaimToVS)
-      .sort((a, b) => b.id - a.id),
+    items: paginatedItems,
     cache: makeLiveFreshness(),
+    nextCursor,
   };
 }
 
@@ -951,11 +1036,13 @@ export async function challengeClaim(
   stakeAmount: number,
   inviteKey = ""
 ): Promise<ClaimWriteResult> {
+  // Before the demo branch, as in createClaim: the demo relay signs with a funded
+  // server key, so a stake pause that only covered the non-demo path was bypassed.
+  const stakeGate = checkWriteAllowed({ capability: "stake" });
+  if (!stakeGate.allowed) throw new Error(stakeGate.detail ?? "staking is unavailable");
   if (isDemoMode()) {
     return sendDemoTx("challenge_claim", { claimId, stakeAmount, inviteKey });
   }
-  const stakeGate = checkWriteAllowed({ capability: "stake" });
-  if (!stakeGate.allowed) throw new Error(stakeGate.detail ?? "staking is unavailable");
   await assertChallengeAllowed(claimId, stakeAmount);
 
   const signer = requireSigner(wallet, "join this market");
@@ -989,6 +1076,10 @@ export async function resolveClaim(
     evidence_hash?: string;
   },
 ): Promise<ClaimWriteResult> {
+  // Pausing settlement only delays it: withdraw and payout claims stay ungated, and
+  // an expired claim is simply settled on the first poll after the switch clears.
+  const gate = checkWriteAllowed({ capability: "oracle_settlement" });
+  if (!gate.allowed) throw new Error(gate.detail ?? "settlement is unavailable");
   if (isDemoMode()) {
     return sendDemoTx("resolve_claim", { claimId });
   }
@@ -1041,6 +1132,9 @@ export async function createRematch(
   parentId: number,
   params: Pick<CreateClaimParams, "deadline" | "stake_amount" | "invite_key">
 ): Promise<ClaimWriteResult> {
+  // The non-demo path reaches createClaim's gate; the demo relay does not.
+  const gate = checkWriteAllowed({ capability: "create_market" });
+  if (!gate.allowed) throw new Error(gate.detail ?? "market creation is unavailable");
   if (isDemoMode()) {
     return sendDemoTx("create_rematch", { parentId, ...params });
   }
@@ -1212,6 +1306,9 @@ export async function createSquadMarket(
   wallet: WalletArg,
   params: { question: string; deadline: number; fee_bps: number },
 ): Promise<ContractWriteResult & { marketId: number }> {
+  // Squad pools move USDC like binary markets do, so the same switches stop them.
+  const gate = checkWriteAllowed({ capability: "create_market" });
+  if (!gate.allowed) throw new Error(gate.detail ?? "market creation is unavailable");
   const signer = requireSigner(wallet, "open this squad market");
   const { value, write } = await sendCall<bigint>(
     "create_market",
@@ -1231,6 +1328,8 @@ export async function squadDeposit(
   side: number,
   amount: number,
 ): Promise<ContractWriteResult> {
+  const gate = checkWriteAllowed({ capability: "stake" });
+  if (!gate.allowed) throw new Error(gate.detail ?? "staking is unavailable");
   const signer = requireSigner(wallet, "back this side");
   const { write } = await sendCall<void>(
     "deposit",
@@ -1391,26 +1490,6 @@ function buildCreateParams(p: CreateClaimParams): MimirMarket.CreateParams {
 // ── Demo mode helpers ─────────────────────────────────────────────────────────
 function isDemoMode(): boolean {
   return process.env.NEXT_PUBLIC_DEMO_MODE === "1";
-}
-
-function getDemoSecret(action: string): string | undefined {
-  if (action === "create_claim" || action === "create_rematch") {
-    return (
-      process.env.DEMO_CREATOR_STELLAR_SECRET ||
-      process.env.DEMO_SIGNER_STELLAR_SECRET ||
-      process.env.DEMO_CREATOR_PRIVATE_KEY ||
-      process.env.DEMO_SIGNER_PRIVATE_KEY
-    );
-  }
-  if (action === "challenge_claim") {
-    return (
-      process.env.DEMO_CHALLENGER_STELLAR_SECRET ||
-      process.env.DEMO_SIGNER_STELLAR_SECRET ||
-      process.env.DEMO_CHALLENGER_PRIVATE_KEY ||
-      process.env.DEMO_SIGNER_PRIVATE_KEY
-    );
-  }
-  return process.env.DEMO_SIGNER_STELLAR_SECRET || process.env.DEMO_SIGNER_PRIVATE_KEY;
 }
 
 async function getDemoSigner(action: string): Promise<StellarSigner | null> {
@@ -1667,18 +1746,24 @@ export async function getUserClaimSummaries(address: string): Promise<ClaimData[
 
 /** @deprecated use getAllVSFast */
 export async function getAllVSSnapshot(
-  opts?: { forceRefresh?: boolean }
+  opts?: { forceRefresh?: boolean; cursor?: number; limit?: number }
 ): Promise<VSFeedSnapshot> {
   // In the browser this MUST go through /api/vs (the indexed cache): simulating
   // two invocations per claim against the public Soroban RPC trips its
   // per-client rate limit and the whole feed comes back empty.
   if (typeof window !== "undefined") {
-    const res = await fetch(opts?.forceRefresh ? "/api/vs?refresh=1" : "/api/vs");
+    const searchParams = new URLSearchParams();
+    if (opts?.forceRefresh) searchParams.set("refresh", "1");
+    if (opts?.cursor) searchParams.set("cursor", String(opts.cursor));
+    if (opts?.limit) searchParams.set("limit", String(opts.limit));
+    const qs = searchParams.toString();
+
+    const res = await fetch(qs ? `/api/vs?${qs}` : "/api/vs");
     if (!res.ok) throw new Error(`/api/vs returned ${res.status}`);
     const data = await res.json();
-    return { items: data.items ?? [], cache: data.cache ?? null };
+    return { items: data.items ?? [], cache: data.cache ?? null, nextCursor: data.nextCursor ?? null };
   }
-  return getAllVSDirect();
+  return getAllVSDirect(opts);
 }
 
 /** @deprecated use getUserVSFast */

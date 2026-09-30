@@ -24,6 +24,7 @@ import {
   personaSecretEnv,
 } from "../personas";
 import { getOrFetchEvidence } from "./evidence-cache";
+import { checkEvidenceFreshness } from "./evidence-freshness";
 import { evaluateClaimAsPersona, type PersonaVerdict } from "./persona-llm";
 import {
   evaluateContrarian,
@@ -105,6 +106,16 @@ export async function evaluatePersonaForClaim(
       stakeUsdc:   0,
       rationale:   `${persona.displayName}: no usable evidence at the resolution URL — abstaining.`,
       skipReason:  "no-evidence",
+    };
+  }
+
+  const freshness = checkEvidenceFreshness(evidence, claim.category);
+  if (!freshness.fresh) {
+    return {
+      shouldStake: false,
+      stakeUsdc:   0,
+      rationale:   `${persona.displayName}: ${freshness.reason} — abstaining until evidence is refreshed.`,
+      skipReason:  "stale-evidence",
     };
   }
 

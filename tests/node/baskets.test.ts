@@ -121,3 +121,12 @@ test("regression: zero-weight rows are ignored in the create preview", () => {
   assert.equal(preview.agentBars.some((bar) => bar.key === "b"), false);
   assert.equal(preview.categories.council, 4_000);
 });
+
+test("basket validation rejects floating point weight dust", () => {
+  const invalidWeights = [
+    { agentId: "a", weightBps: 5_000.5, category: "council", mode: "pool" },
+    { agentId: "b", weightBps: 4_999.5, category: "byoa", mode: "pool" },
+  ];
+  const errors = validateBasket(invalidWeights, DEFAULT_BASKET_POLICY);
+  assert.ok(errors.includes("weights_must_be_integers"));
+});

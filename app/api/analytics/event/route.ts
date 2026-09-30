@@ -5,11 +5,19 @@
  * and so redaction cannot be skipped by a client. Always answers 204: analytics
  * must never surface an error to a user, and a body would only invite clients to
  * branch on it.
+ *
+ * Traced, because the ingest request is server-side telemetry like any other: a
+ * capture that silently stops looks identical to a page nobody visited. Note what
+ * the trace id here does and does not mean — it identifies THIS ingest, not the
+ * navigation that produced the event. A browser may not assert a trace id of its
+ * own, so the one in the response belongs to the server and only a client that
+ * already held an id we minted would match it.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { capture, type CaptureArgs } from "@/lib/analytics/server";
 import { isAnalyticsEvent } from "@/lib/analytics/events";
+import { tracedRoute } from "@/lib/ops/trace-http";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +26,7 @@ function serverSideOptOut(req: NextRequest): boolean {
   return req.headers.get("dnt") === "1" || req.headers.get("sec-gpc") === "1";
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function ingest(req: NextRequest): Promise<NextResponse> {
   const noContent = new NextResponse(null, { status: 204 });
   if (serverSideOptOut(req)) return noContent;
 
@@ -60,3 +68,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return noContent;
 }
+
+export const POST = tracedRoute("api.analytics.event", ingest);

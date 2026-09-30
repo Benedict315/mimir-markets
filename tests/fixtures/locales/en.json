@@ -1,0 +1,28 @@
+{
+  "common": {
+    "back": "Back",
+    "connect": "Connect",
+    "loading": "Loading..."
+  },
+  "home": {
+    "tagline": "Make a claim. Find a challenger. Let the evidence decide.",
+    "heroChallengeSomeone": "CHALLENGE SOMEONE"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "copySection": "Copy Trading",
+    "copyEnable": "Enable mirror"
+  },
+  "wallet": {
+    "noWallet": "No wallet connected",
+    "rejected": "Transaction rejected"
+  },
+  "create": {
+    "stakeSectionTitle": "Stake",
+    "createAndFund": "Create & Fund {amount} USDC"
+  },
+  "vsDetail": {
+    "eyebrow": "Challenge",
+    "subtitle": "Pool"
+  }
+}

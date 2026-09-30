@@ -50,6 +50,8 @@ export interface TierPolicy {
   requiresSignature: boolean;
   /** The shared worker secret must match. */
   requiresWorkerSecret: boolean;
+  /** Requires browser-origin validation for mutating requests (CSRF protection). */
+  requiresOriginValidation: boolean;
   /** Rate-limit dimensions that apply. */
   limitDimensions: LimitRule["dimension"][];
 }
@@ -60,6 +62,7 @@ export const TIER_POLICIES: Record<AccessTier, TierPolicy> = {
     requiresWallet: false,
     requiresSignature: false,
     requiresWorkerSecret: false,
+    requiresOriginValidation: false,
     // IP and route only: an anonymous caller has no wallet to bucket by.
     limitDimensions: ["ip", "route"],
   },
@@ -68,6 +71,7 @@ export const TIER_POLICIES: Record<AccessTier, TierPolicy> = {
     requiresWallet: true,
     requiresSignature: false,
     requiresWorkerSecret: false,
+    requiresOriginValidation: true,
     limitDimensions: ["ip", "wallet", "route"],
   },
   registered_agent: {
@@ -75,6 +79,7 @@ export const TIER_POLICIES: Record<AccessTier, TierPolicy> = {
     requiresWallet: true,
     requiresSignature: true,
     requiresWorkerSecret: false,
+    requiresOriginValidation: false,
     limitDimensions: ["agent", "route"],
   },
   /**
@@ -92,6 +97,7 @@ export const TIER_POLICIES: Record<AccessTier, TierPolicy> = {
     requiresWallet: false,
     requiresSignature: false,
     requiresWorkerSecret: false,
+    requiresOriginValidation: false,
     limitDimensions: ["agent", "ip", "route"],
   },
   internal_worker: {
@@ -99,6 +105,7 @@ export const TIER_POLICIES: Record<AccessTier, TierPolicy> = {
     requiresWallet: false,
     requiresSignature: false,
     requiresWorkerSecret: true,
+    requiresOriginValidation: false,
     // Route only: a worker's own bursts are a scheduling problem, not abuse, and
     // bucketing by IP would rate-limit an entire serverless region together.
     limitDimensions: ["route"],
@@ -119,6 +126,8 @@ export interface RequestContext {
   /** True when this call moves money or changes authority. */
   mutatesValue?: boolean;
   idempotencyKey?: string;
+  /** True if the origin was verified against the host. */
+  originValid?: boolean;
 }
 
 export interface AuthorizeResult {
@@ -184,6 +193,13 @@ export function authorizeRequest(
   // A retried money-moving call without an idempotency key is a second payment.
   if (ctx.mutatesValue && tier !== "public_read" && !ctx.idempotencyKey?.trim()) {
     return refuse("invalid_request", "an idempotency key is required for this operation");
+  }
+
+  // Enforce browser-origin policy (CSRF) for mutating requests.
+  if (ctx.mutatesValue && policy.requiresOriginValidation) {
+    if (ctx.originValid !== true) {
+      return refuse("forbidden", "cross-origin mutations are not allowed");
+    }
   }
 
   const keys: RateLimitKeys = {

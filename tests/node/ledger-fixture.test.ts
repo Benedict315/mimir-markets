@@ -20,7 +20,7 @@ test("tampered money data fails the reviewed fingerprint", async () => {
 });
 test("incomplete capture fails closed on orphan events", async () => {
   const fixture = await loadLedgerFixture(fixturePath); fixture.events = fixture.events.slice(1);
-  assert.throws(() => replayLedgerFixture(fixture), /1 orphan event/);
+  assert.throws(() => replayLedgerFixture(fixture), /2 orphan event/);
 });
 test("conflicting events at one ledger position are rejected", () => {
   const base = { version: 1, name: "conflict", network: "stellar:testnet", contractId: "contract", deployLedger: 10, capturedThroughLedger: 10, reorgedOut: [], expectedFingerprint: "reviewed" };

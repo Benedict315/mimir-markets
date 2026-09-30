@@ -8,11 +8,12 @@ import {
   getMarketContractId,
   isContractAddress,
   isMarketConfigured,
+  validateNetworkPassphrase,
 } from "@/lib/stellar";
 import { publishReasoning } from "@/lib/reasoning/publish";
 import {
-  AGENT_API_ACTIONS, AGENT_API_VERSION, MAX_SIGNED_REQUEST_PAYLOAD_BYTES,
-  agentRequestMessage, validateAgentRequestEnvelope,
+  AGENT_ACTION_PAUSE, AGENT_API_ACTIONS, AGENT_API_VERSION, AGENT_FUNDED_ACTIONS, MAX_SIGNED_REQUEST_PAYLOAD_BYTES,
+  agentRequestMessage, operatorProofMessage, validateAgentRequestEnvelope,
   type AgentApiAction, type SignedAgentRequest,
 } from "@/lib/agents/api";
 import { authenticateAgentRequest, requiresOwnerSignature } from "@/lib/agents/authenticate";
@@ -39,6 +40,7 @@ import { getUsdcBalanceUnits, usdcToUnits, parseUsdcAtomic } from "@/lib/usdc";
 import { getAgentEarningsSummary } from "@/lib/db";
 import { gateOrPause, pausedCapabilityError, getCapabilityPauseDetail } from "@/lib/server/pause-registry";
 import { apiError } from "@/lib/api/errors";
+import { tracedRoute } from "@/lib/ops/trace-http";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,27 @@ function json(body: unknown, status = 200): Response {
 }
 
 /** Convert a structured ApiErrorResult from lib/api/errors into a Response. */
+/** Map an authorizeAction() rejection to the typed agent API error envelope. */
+function actionVerdictToError(
+  gate: { reason?: string; detail?: string },
+  capability: string,
+): import("@/lib/api/errors").ApiErrorResult {
+  switch (gate.reason) {
+    case "platform_paused":
+    case "paused":
+      return apiError("agent_paused", gate.detail ?? "Agent or platform is paused");
+    case "revoked":
+      return apiError("agent_revoked", gate.detail ?? "Agent has been revoked");
+    case "rate_limit_exceeded":
+      return apiError("rate_limited", gate.detail ?? "Rate limit exceeded");
+    case "missing_capability":
+    case "insufficient_authority":
+      return apiError("capability_missing", gate.detail ?? `Missing capability ${capability}`);
+    default:
+      return apiError("forbidden", gate.detail ?? gate.reason ?? "Action not authorized");
+  }
+}
+
 function errorResponse(err: import("@/lib/api/errors").ApiErrorResult): Response {
   return Response.json(err.body, { status: err.status, headers: { ...err.headers, "cache-control": "no-store" } });
 }
@@ -89,8 +112,11 @@ async function audit(request: SignedAgentRequest, outcome: string, reason?: stri
  * Actions that put an owner's USDC at risk. Gated on byoa_funded_actions so the
  * launch-gate document and the code agree: until an operator enables it, an agent
  * can register, read and dry-run but cannot move money.
+ *
+ * The list itself lives in `lib/agents/api.ts` because the published wire contract
+ * reads it from there — a second copy here and in the docs is a copy that drifts.
  */
-const FUNDED_ACTIONS: readonly AgentApiAction[] = ["createMarket", "stake", "vote"];
+const FUNDED_ACTIONS: readonly AgentApiAction[] = AGENT_FUNDED_ACTIONS;
 
 async function register(request: SignedAgentRequest<Record<string, any>>): Promise<Response> {
   // Pause check first: "registration is paused" is more accurate than "not enabled"
@@ -111,8 +137,8 @@ async function register(request: SignedAgentRequest<Record<string, any>>): Promi
   if (!(await verify(owner, agentRequestMessage(request), request.signature))) {
     return json({ error: { message: "owner signature rejected" } }, 401);
   }
-  const operatorProofMessage = `Mimir agent operator proof\nagent: ${request.agentId}\noperator: ${operator}`;
-  if (!(await verify(operator, operatorProofMessage, String(body.operatorSignature ?? "")))) {
+  const operatorProof = operatorProofMessage(request.agentId, operator);
+  if (!(await verify(operator, operatorProof, String(body.operatorSignature ?? "")))) {
     return json({ error: { message: "operator signature rejected" } }, 401);
   }
 
@@ -195,7 +221,10 @@ function clientIp(req: Request): string | undefined {
   return forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || undefined;
 }
 
-export async function POST(req: Request, context: { params: Promise<{ action: string }> }): Promise<Response> {
+async function handleAgentApiPost(
+  req: Request,
+  context: { params: Promise<{ action: string }> },
+): Promise<Response> {
   const { action: rawAction } = await context.params;
   if (!(AGENT_API_ACTIONS as readonly string[]).includes(rawAction)) return json({ error: { message: "unknown action" } }, 404);
   const action = rawAction as AgentApiAction;
@@ -290,6 +319,15 @@ export async function POST(req: Request, context: { params: Promise<{ action: st
       },
     }, 403);
   }
+  // After the feature check, as in checkWriteAllowed: "not enabled" is the truer
+  // answer for something that was never switched on. Before the idempotency replay,
+  // so a cached "allowed" cannot be served while the capability is paused.
+  const pauseCapability = AGENT_ACTION_PAUSE[action];
+  const pauseErr = pauseCapability ? gateOrPause({ capability: pauseCapability }) : null;
+  if (pauseErr) {
+    await audit(request, "rejected", "paused");
+    return errorResponse(pauseErr);
+  }
   const prior = await loadIdempotentResponse(agent.agentId, action, request.idempotencyKey);
   if (prior) return json(prior.body, prior.status);
   const replayed = await rejectReplayedSignedEnvelope({
@@ -317,10 +355,14 @@ export async function POST(req: Request, context: { params: Promise<{ action: st
       }
       expiresAt = Date.now() + Math.floor(ttl) * 1000;
     }
+    const scopes = Array.isArray(body.scopes) ? body.scopes.map(String) : undefined;
+    if (scopes && scopes.length === 0) {
+      return json({ error: { message: "Cannot issue a key with an empty scope set" } }, 400);
+    }
     const record: AgentApiKeyRecord = {
       keyId: randomUUID(), agentId: agent.agentId, keyHash: hashApiKey(key),
       keyPrefix: apiKeyPrefix(key), label: String(body.label ?? "").slice(0, 80),
-      createdAt: Date.now(), expiresAt,
+      createdAt: Date.now(), expiresAt, scopes,
     };
     await insertAgentApiKey(record);
     result = {
@@ -369,10 +411,14 @@ export async function POST(req: Request, context: { params: Promise<{ action: st
     // Issue the new key first — if the DB is unavailable we do nothing rather
     // than scheduling an expiry on the old key without a replacement.
     const newKey = generateApiKey(body.environment === "test" ? "test" : "live");
+    const scopes = Array.isArray(body.scopes) ? body.scopes.map(String) : undefined;
+    if (scopes && scopes.length === 0) {
+      return json({ error: { message: "Cannot issue a key with an empty scope set" } }, 400);
+    }
     const newRecord: AgentApiKeyRecord = {
       keyId: randomUUID(), agentId: agent.agentId, keyHash: hashApiKey(newKey),
       keyPrefix: apiKeyPrefix(newKey), label: String(body.label ?? "").slice(0, 80),
-      createdAt: Date.now(),
+      createdAt: Date.now(), scopes,
     };
     await insertAgentApiKey(newRecord);
 
@@ -532,3 +578,9 @@ export async function POST(req: Request, context: { params: Promise<{ action: st
   await saveIdempotentResponse(agent.agentId, action, request.idempotencyKey, result);
   return json(result);
 }
+
+// Traced: this is the API an autonomous agent calls, and the failure it gets back
+// carries the id in its body (see `apiError`) and in the `x-mimir-trace-id`
+// header. A signature failure, a pause, and a 500 are all one grep away instead of
+// three log streams read by eye. See docs/TRACE_CORRELATION.md.
+export const POST = tracedRoute("api.agents.v1", handleAgentApiPost);

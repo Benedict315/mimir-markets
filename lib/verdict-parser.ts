@@ -36,16 +36,31 @@
 import {
   parseVerdictPayload,
   dependencyFailure,
+  malformedFailure,
+  validateResearchCitation,
+  validateCitationsList,
   type VerdictPayload,
   type VerdictParseResult,
   type VerdictParseError,
   type VerdictGuardContext,
+  type ResearchCitation,
 } from "./verdict";
 
-export type { VerdictPayload, VerdictParseResult, VerdictParseError, VerdictGuardContext };
+export type {
+  VerdictPayload,
+  VerdictParseResult,
+  VerdictParseError,
+  VerdictGuardContext,
+  ResearchCitation,
+};
 
 // Re-export helpers callers commonly need alongside the parser.
-export { dependencyFailure } from "./verdict";
+export {
+  dependencyFailure,
+  malformedFailure,
+  validateResearchCitation,
+  validateCitationsList,
+} from "./verdict";
 
 // ── JSON schema for Gemini structured-output requests ────────────────────────
 //
@@ -65,6 +80,19 @@ export const VERDICT_LLM_SCHEMA = {
     },
     confidence: { type: "integer" },
     explanation: { type: "string" },
+    citations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          url: { type: "string" },
+          contentHash: { type: "string" },
+          excerpt: { type: "string" },
+          title: { type: "string" },
+        },
+        required: ["url", "contentHash"],
+      },
+    },
   },
   required: ["verdict", "confidence", "explanation"],
 } as const;
@@ -219,6 +247,7 @@ export async function parseLLMVerdictWithRetry(
       "invalid-json",
       "missing-verdict",
       "invalid-verdict",
+      "malformed",
     ];
     if (!retryable.includes(parsed.reason)) {
       return { result: parsed, lastRawText: rawText, attempts: attempt as 1 | 2 };

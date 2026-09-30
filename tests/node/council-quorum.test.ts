@@ -242,3 +242,35 @@ test("regression: empty jury never uses council", () => {
   assert.equal(eval_.decisiveCount, 0);
   assert.equal(shouldUseCouncil(eval_), false);
 });
+
+// ── paused ────────────────────────────────────────────────────────────────────
+
+test("negative: paused persona is classified as paused, not valid", () => {
+  const v = classifyVoteAttempt(attempt({ slug: "optimist", personaPaused: true }));
+  assert.equal(v.disposition, "paused");
+  assert.equal(v.decisive, false);
+  assert.equal(v.verdict, undefined);
+  assert.equal(v.confidence, undefined);
+});
+
+test("negative: paused claims abort quorum even with decisive votes", () => {
+  const eval_ = evaluateQuorum([valid("a"), valid("b"), valid("c")], 3, { claimState: "paused" });
+  assert.equal(eval_.action, "abort_paused");
+  assert.equal(eval_.ballot.length, 0);
+  assert.equal(eval_.decisiveCount, 0);
+  assert.match(eval_.reason, /paused/);
+});
+
+test("boundary: paused dispositions appear in counts and do not pad quorum", () => {
+  const attempts = [
+    classifyVoteAttempt(attempt({ slug: "a", personaPaused: true })),
+    classifyVoteAttempt(attempt({ slug: "b", personaPaused: true })),
+    valid("c"),
+  ];
+  const eval_ = evaluateQuorum(attempts, 3);
+  assert.equal(eval_.action, "fallback_solo");
+  assert.equal(eval_.decisiveCount, 1);
+  assert.equal(eval_.dispositions.paused, 2);
+  assert.match(eval_.reason, /paused/);
+  assert.equal(shouldUseCouncil(eval_), false);
+});

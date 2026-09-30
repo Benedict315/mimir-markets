@@ -44,7 +44,17 @@ import {
   isXmtpFeatureEnabled,
 } from "@/lib/xmtp/config";
 import { clearXmtpIdentityCache } from "@/lib/xmtp/identity";
-import { createXmtpSignerForStellarAccount } from "@/lib/xmtp/signer";
+import {
+  createXmtpSignerForStellarAccount,
+  XmtpSignerError,
+} from "@/lib/xmtp/signer";
+import {
+  clearXmtpFailure,
+  classifyXmtpFailureKind,
+  nextXmtpFailure,
+  xmtpAutoRetryDelayMs,
+  type XmtpFailure,
+} from "@/lib/xmtp/failure-state";
 
 export type XmtpClientStatus =
   /** Sin wallet o aún no aplicable */
@@ -63,6 +73,12 @@ export type XmtpContextValue = {
   client: XmtpClientInstance | null;
   status: XmtpClientStatus;
   error: Error | null;
+  /**
+   * Clasificación accionable del fallo actual, o `null` si no hay ninguno.
+   * La UI debe mapear `failure.kind` a i18n y usar `failure.technical` solo para
+   * soporte; `error` se conserva por compatibilidad y no es para pintar.
+   */
+  failure: XmtpFailure | null;
   /** Cuenta Stellar con la que se intentó / logró inicializar (null si idle/disabled). */
   activeAddress: string | null;
   /**
@@ -80,6 +96,7 @@ const defaultValue: XmtpContextValue = {
   client: null,
   status: "idle",
   error: null,
+  failure: null,
   activeAddress: null,
   inboxAddress: null,
   featureEnabled: false,
@@ -192,9 +209,27 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     featureEnabled ? "idle" : "disabled"
   );
   const [error, setError] = useState<Error | null>(null);
+  const [failure, setFailure] = useState<XmtpFailure | null>(null);
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [inboxAddress, setInboxAddress] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  /**
+   * Fallo anterior inmediato, sin filtrar por `kind`. El contador de intentos vive
+   * en `nextXmtpFailure`; este ref solo existe para que el temporizador de
+   * reintento desatendido sepa qué clase de fallo acaba de ocurrir, incluso si el
+   * estado ya se limpió.
+   */
+  const failureRef = useRef<XmtpFailure | null>(null);
+
+  const recordFailure = useCallback((next: XmtpFailure) => {
+    failureRef.current = next;
+    setFailure(next);
+  }, []);
+
+  const dropFailure = useCallback(() => {
+    failureRef.current = clearXmtpFailure();
+    setFailure(clearXmtpFailure());
+  }, []);
 
   // `signMessage` from the wallet context is a stable `useCallback`, but the
   // init effect must not re-run if that ever stops being true: re-running it
@@ -210,6 +245,28 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
   const retry = useCallback(() => {
     setRetryTrigger((n) => n + 1);
   }, []);
+
+  /**
+   * Reintento desatendido con backoff, solo para fallos transitorios.
+   *
+   * `signature_declined` queda fuera a propósito: reintentarlo por debajo de la
+   * pantalla reabriría el diálogo de la wallet sin que nadie lo pidiera, y una
+   * firma rechazada es una decisión, no una avería. El corte en
+   * `xmtpAutoRetryDelayMs` evita además un bucle infinito con la UI cerrada.
+   */
+  useEffect(() => {
+    if (!failure || !featureEnabled) return;
+    // While an attempt is in flight the notice stays on screen with a busy Retry
+    // button; scheduling another unattended retry then would double up with it.
+    if (status === "initializing") return;
+    const delay = xmtpAutoRetryDelayMs(failure);
+    if (delay == null) return;
+    const id = window.setTimeout(() => {
+      if (failureRef.current !== failure) return;
+      retry();
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [failure, featureEnabled, status, retry]);
 
   // Listen for lock releases from other tabs so we can auto-retry
   useEffect(() => {
@@ -247,6 +304,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       setActiveAddress(null);
       setInboxAddress(null);
       setError(null);
+      dropFailure();
       if (clientRef.current) {
         try {
           clientRef.current.close();
@@ -274,6 +332,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       setActiveAddress(null);
       setInboxAddress(null);
       setError(null);
+      dropFailure();
       setStatus("idle");
       // The derived key is memory-only; dropping it on disconnect means the next
       // account signs for its own identity instead of inheriting this one.
@@ -286,7 +345,12 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     if (!lock.acquired) {
       setClient(null);
       setActiveAddress(address);
-      setError(new Error("Chat is active in another tab. Close it to use chat here."));
+      const technical =
+        "Chat is active in another tab. Close it to use chat here.";
+      setError(new Error(technical));
+      recordFailure(
+        nextXmtpFailure(failureRef.current, "blocked_by_tab", technical)
+      );
       setStatus("blocked_by_tab");
       return;
     }
@@ -295,6 +359,9 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     const myGen = ++initGenRef.current;
     setStatus("initializing");
     setError(null);
+    // The failure is deliberately NOT cleared here: a retry attempt has to keep
+    // showing why it is retrying, with the button busy, until the attempt lands.
+    // It is dropped on success (and on disconnect / flag-off) below.
     setActiveAddress(address);
 
     (async () => {
@@ -357,6 +424,7 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         setClient(newClient);
         setStatus("ready");
         setError(null);
+        dropFailure();
       } catch (e) {
         if (myGen !== initGenRef.current) {
           newClient?.close();
@@ -369,6 +437,16 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
         const err =
           e instanceof Error ? e : new Error(String(e ?? "XMTP init failed"));
         setError(err);
+        recordFailure(
+          nextXmtpFailure(
+            failureRef.current,
+            classifyXmtpFailureKind(err, {
+              status: "error",
+              signerCode: e instanceof XmtpSignerError ? e.code : undefined,
+            }),
+            err.message
+          )
+        );
         setStatus("error");
       }
     })();
@@ -391,6 +469,8 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
     address,
     retryTrigger,
     tabId,
+    recordFailure,
+    dropFailure,
   ]);
 
   const value = useMemo<XmtpContextValue>(
@@ -398,12 +478,22 @@ export function XmtpProvider({ children }: { children: React.ReactNode }) {
       client,
       status,
       error,
+      failure,
       activeAddress,
       inboxAddress,
       featureEnabled,
       retry,
     }),
-    [client, status, error, activeAddress, inboxAddress, featureEnabled, retry]
+    [
+      client,
+      status,
+      error,
+      failure,
+      activeAddress,
+      inboxAddress,
+      featureEnabled,
+      retry,
+    ]
   );
 
   return <XmtpCtx.Provider value={value}>{children}</XmtpCtx.Provider>;

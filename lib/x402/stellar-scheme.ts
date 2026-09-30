@@ -307,14 +307,10 @@ export async function verifyStellarPayment(
     };
   }
   if (!isAccountAddress(requirements.payTo)) {
-    // A `C…` contract can hold the same USDC balance, but a classic Payment
-    // operation cannot target one — so a contract payTo is a seller
-    // misconfiguration rather than a buyer error, and is refused up front rather
-    // than after the buyer has already spent money it cannot prove.
     return {
       ok: false,
       reason: "unsupported_pay_to",
-      message: `payTo ${requirements.payTo} is not a Stellar account — classic payments cannot target a contract`,
+      message: `payTo ${requirements.payTo} is not a valid Stellar account address`,
     };
   }
 
@@ -503,11 +499,15 @@ export function consumedSettlementsCount(): number {
 export async function consumeSettlement(network: string, transaction: string): Promise<boolean> {
   const key = `${network}|${transaction.toLowerCase()}`;
   if (consumed.has(key)) return false;
+  
+  // Claim the hash in-memory BEFORE yielding to the DB read.
+  // This prevents concurrent requests on the same instance from both seeing "unseen"
+  // and both settling successfully before the DB row lands.
+  remember(key);
+  
   if (await settledInLedger(network, transaction)) {
-    remember(key);
     return false;
   }
-  remember(key);
   return true;
 }
 

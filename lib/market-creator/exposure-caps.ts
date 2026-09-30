@@ -29,6 +29,16 @@ export interface CreatorExposureClaim {
   reservedCreatorLiabilityUsdc?: number;
 }
 
+/**
+ * A creator exposure claim carrying the category it was published in, so the
+ * same live-claim accounting can be bucketed per category without redefining
+ * what "open" means. See `lib/market-creator/category-caps.ts`.
+ */
+export interface CategoryExposureClaim extends CreatorExposureClaim {
+  /** On-chain category string; normalised by the per-category cap module. */
+  category: string;
+}
+
 export interface ExposureCapPolicy {
   /** Hard ceiling on open creator exposure, display USDC. */
   maxOpenExposureUsdc: number;
@@ -57,7 +67,7 @@ export interface ExposureCapDecision {
 
 const LIVE_STATES = new Set(["open", "active"]);
 
-function finiteNonNegative(value: unknown): value is number {
+export function isFiniteNonNegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
@@ -108,18 +118,18 @@ export function exposureSkipReason(
   if (claim.creator !== creatorAddress) return "other_creator";
   if (!LIVE_STATES.has(String(claim.state).toLowerCase())) return "not_open";
   if (!Number.isFinite(claim.deadline) || claim.deadline <= nowSeconds) return "expired";
-  if (!finiteNonNegative(claim.creatorStakeUsdc)) return "malformed_stake";
+  if (!isFiniteNonNegative(claim.creatorStakeUsdc)) return "malformed_stake";
   const reserved = claim.reservedCreatorLiabilityUsdc;
-  if (reserved !== undefined && !finiteNonNegative(reserved)) return "malformed_stake";
+  if (reserved !== undefined && !isFiniteNonNegative(reserved)) return "malformed_stake";
   return null;
 }
 
 /** Locked creator USDC still at risk on one live claim. */
 export function exposureUsdcForClaim(claim: CreatorExposureClaim): number {
-  const stake = finiteNonNegative(claim.creatorStakeUsdc) ? claim.creatorStakeUsdc : 0;
+  const stake = isFiniteNonNegative(claim.creatorStakeUsdc) ? claim.creatorStakeUsdc : 0;
   const reserved =
     claim.reservedCreatorLiabilityUsdc !== undefined &&
-    finiteNonNegative(claim.reservedCreatorLiabilityUsdc)
+    isFiniteNonNegative(claim.reservedCreatorLiabilityUsdc)
       ? claim.reservedCreatorLiabilityUsdc
       : 0;
   return stake + reserved;
@@ -174,7 +184,7 @@ export function checkCreatorExposureCap(args: {
 }): ExposureCapDecision {
   const { openExposureUsdc, stakeUsdc, maxOpenExposureUsdc } = args;
 
-  if (!finiteNonNegative(maxOpenExposureUsdc)) {
+  if (!isFiniteNonNegative(maxOpenExposureUsdc)) {
     return {
       allowed: false,
       openExposureUsdc: Number.NaN,
@@ -184,7 +194,7 @@ export function checkCreatorExposureCap(args: {
       blockedBy: `invalid maxOpenExposureUsdc ${String(maxOpenExposureUsdc)}`,
     };
   }
-  if (!finiteNonNegative(openExposureUsdc)) {
+  if (!isFiniteNonNegative(openExposureUsdc)) {
     return {
       allowed: false,
       openExposureUsdc,
@@ -194,7 +204,7 @@ export function checkCreatorExposureCap(args: {
       blockedBy: `invalid openExposureUsdc ${String(openExposureUsdc)}`,
     };
   }
-  if (!finiteNonNegative(stakeUsdc) || stakeUsdc === 0) {
+  if (!isFiniteNonNegative(stakeUsdc) || stakeUsdc === 0) {
     return {
       allowed: false,
       openExposureUsdc,
@@ -233,8 +243,8 @@ export function marketsRemainingUnderCap(args: {
   stakeUsdc: number;
   maxOpenExposureUsdc: number;
 }): number {
-  if (!finiteNonNegative(args.stakeUsdc) || args.stakeUsdc <= 0) return 0;
-  if (!finiteNonNegative(args.openExposureUsdc) || !finiteNonNegative(args.maxOpenExposureUsdc)) {
+  if (!isFiniteNonNegative(args.stakeUsdc) || args.stakeUsdc <= 0) return 0;
+  if (!isFiniteNonNegative(args.openExposureUsdc) || !isFiniteNonNegative(args.maxOpenExposureUsdc)) {
     return 0;
   }
   return Math.floor(Math.max(0, args.maxOpenExposureUsdc - args.openExposureUsdc) / args.stakeUsdc);

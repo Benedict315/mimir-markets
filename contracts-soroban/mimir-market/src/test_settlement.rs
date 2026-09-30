@@ -560,7 +560,13 @@ fn a_challenger_can_only_pull_once() {
         .resolve_claim(&id, &WinnerSide::Draw, &f.str("d"), &1, &f.zero_hash());
 
     f.client().claim_challenger_payout(&c1, &id);
-    assert_eq!(f.client().claim_challenger_payout(&c1, &id), 0);
+    // A duplicate pull is rejected explicitly rather than silently returning 0.
+    let err = f
+        .client()
+        .try_claim_challenger_payout(&c1, &id)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, Error::AlreadyClaimedPayout);
 
     // The roster reports who has settled.
     let roster = f.client().get_challenger_list(&id);
@@ -571,6 +577,148 @@ fn a_challenger_can_only_pull_once() {
     // The double pull did not drain the escrow owed to c2.
     assert_eq!(f.client().get_claim(&id).remaining_escrow, 5 * USDC);
     assert_eq!(f.escrow_balance(), 5 * USDC);
+}
+
+/// A rejected duplicate claim is a true no-op: escrow, the claim's payout
+/// counters, the roster marker, and both balances are byte-for-byte unchanged,
+/// and another challenger can still pull their own share afterwards.
+#[test]
+fn a_duplicate_payout_claim_writes_no_state() {
+    let f = Fixture::new(0, 0);
+    let creator = f.user(100 * USDC);
+    let c1 = f.user(100 * USDC);
+    let c2 = f.user(100 * USDC);
+    let id = f.client().create_claim(&creator, &f.params(10 * USDC));
+    f.client().challenge_claim(&c1, &id, &(5 * USDC), &None);
+    f.client().challenge_claim(&c2, &id, &(5 * USDC), &None);
+    f.advance_by(3_600);
+    f.client()
+        .resolve_claim(&id, &WinnerSide::Draw, &f.str("d"), &1, &f.zero_hash());
+
+    let paid = f.client().claim_challenger_payout(&c1, &id);
+    let balance_after_first = f.token().balance(&c1);
+    let escrow_after_first = f.escrow_balance();
+    let claim_after_first = f.client().get_claim(&id);
+
+    let err = f
+        .client()
+        .try_claim_challenger_payout(&c1, &id)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, Error::AlreadyClaimedPayout);
+
+    // Nothing moved, and the payout counter was not advanced a second time.
+    assert_eq!(f.token().balance(&c1), balance_after_first);
+    assert_eq!(f.escrow_balance(), escrow_after_first);
+    assert_eq!(
+        f.client().get_claim(&id).challenger_claims,
+        claim_after_first.challenger_claims
+    );
+    assert_eq!(
+        f.client().get_claim(&id).remaining_escrow,
+        claim_after_first.remaining_escrow
+    );
+    assert_eq!(f.client().get_withdrawable(&c1), 0);
+
+    // c2 is unaffected and still pulls exactly their entitlement.
+    assert_eq!(f.client().claim_challenger_payout(&c2, &id), paid);
+    assert_eq!(f.client().get_claim(&id).remaining_escrow, 0);
+    assert_eq!(f.escrow_balance(), 0);
+}
+
+/// Duplicate rejection must not consume the "last claimant absorbs the
+/// remainder" branch: after c1's rejected retry, c2 is still entitled to the
+/// full remaining escrow, and conservation holds exactly.
+#[test]
+fn a_duplicate_pull_does_not_consume_the_last_claimant_branch() {
+    let f = Fixture::new(0, 0);
+    let creator = f.user(100 * USDC);
+    let c1 = f.user(100 * USDC);
+    let c2 = f.user(100 * USDC);
+    let c3 = f.user(100 * USDC);
+
+    let id = f.client().create_claim(&creator, &f.params(11 * USDC));
+    f.client().challenge_claim(&c1, &id, &(3 * USDC), &None);
+    f.client().challenge_claim(&c2, &id, &(4 * USDC), &None);
+    f.client().challenge_claim(&c3, &id, &(5 * USDC), &None);
+    let inflow = f.escrow_balance();
+
+    f.advance_by(3_600);
+    f.client().resolve_claim(
+        &id,
+        &WinnerSide::Challengers,
+        &f.str("c"),
+        &75,
+        &f.zero_hash(),
+    );
+
+    let mut paid = 0i128;
+    paid += f.client().claim_challenger_payout(&c1, &id);
+    // Replayed pull by c1 is rejected and must not count as a claim.
+    assert_eq!(
+        f.client()
+            .try_claim_challenger_payout(&c1, &id)
+            .unwrap_err()
+            .unwrap(),
+        Error::AlreadyClaimedPayout
+    );
+    paid += f.client().claim_challenger_payout(&c2, &id);
+    // c3 is the last real claimant and absorbs the remainder.
+    paid += f.client().claim_challenger_payout(&c3, &id);
+
+    // Every winner stayed at or above principal, and the escrow paid out
+    // exactly what came in (fees are zero here).
+    assert!(f.token().balance(&c1) >= 100 * USDC);
+    assert!(f.token().balance(&c2) >= 100 * USDC);
+    assert!(f.token().balance(&c3) >= 100 * USDC);
+    assert_eq!(paid, inflow);
+    assert_eq!(f.client().get_claim(&id).remaining_escrow, 0);
+    assert_eq!(f.escrow_balance(), 0);
+}
+
+/// The same fail-closed guard holds on the fixed-odds payout branch, where the
+/// last claimant also absorbs `remaining_escrow`.
+#[test]
+fn a_duplicate_fixed_odds_pull_is_rejected() {
+    let f = Fixture::new(0, 0);
+    let creator = f.user(100 * USDC);
+    let c1 = f.user(100 * USDC);
+    let c2 = f.user(100 * USDC);
+
+    let mut params = f.params(10 * USDC);
+    params.odds_mode = f.str("fixed");
+    params.challenger_payout_bps = 20_000; // 2x
+    let id = f.client().create_claim(&creator, &params);
+    f.client().challenge_claim(&c1, &id, &(5 * USDC), &None);
+    f.client().challenge_claim(&c2, &id, &(5 * USDC), &None);
+
+    f.advance_by(3_600);
+    f.client().resolve_claim(
+        &id,
+        &WinnerSide::Challengers,
+        &f.str("fixed win"),
+        &90,
+        &f.zero_hash(),
+    );
+
+    let first = f.client().claim_challenger_payout(&c1, &id);
+    let balance_after_first = f.token().balance(&c1);
+    assert_eq!(
+        f.client()
+            .try_claim_challenger_payout(&c1, &id)
+            .unwrap_err()
+            .unwrap(),
+        Error::AlreadyClaimedPayout
+    );
+    assert_eq!(f.token().balance(&c1), balance_after_first);
+    assert!(first > 0);
+    assert_eq!(f.escrow_balance(), f.client().get_claim(&id).remaining_escrow);
+
+    // c2 still receives the remainder of the fixed-odds escrow exactly once.
+    let last = f.client().claim_challenger_payout(&c2, &id);
+    assert_eq!(f.client().get_claim(&id).remaining_escrow, 0);
+    assert_eq!(f.escrow_balance(), 0);
+    assert!(last > 0);
 }
 
 /// If a challenger never pulls, `challenger_claims` never reaches

@@ -1,0 +1,215 @@
+{
+  "description": "Synthetic oracle verdicts (no real claims, wallets or amounts) run through applyFetcherTrust then tierVerdict. expected.tier is the tier of the fetcher-capped confidence; DRAW and UNRESOLVABLE pass through untiered. Used by tests/node/oracle-confidence-tiers.test.ts (#97).",
+  "cases": [
+    {
+      "name": "api evidence, confidence exactly 80 (HIGH lower bound) settles as-is",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 80,
+        "explanation": "Price closed above target."
+      },
+      "expected": {
+        "tier": "high",
+        "verdict": "CREATOR_WINS",
+        "confidence": 80,
+        "explanation": "Price closed above target."
+      }
+    },
+    {
+      "name": "api evidence, confidence 100 settles as-is",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 100,
+        "explanation": "Price closed below target."
+      },
+      "expected": {
+        "tier": "high",
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 100,
+        "explanation": "Price closed below target."
+      }
+    },
+    {
+      "name": "api evidence, confidence 79.99 (just under HIGH) is contested",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 79.99,
+        "explanation": "Close call."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "CREATOR_WINS",
+        "confidence": 79.99,
+        "explanation": "[CONTESTED] Close call."
+      }
+    },
+    {
+      "name": "api evidence, confidence exactly 60 (MEDIUM lower bound) is contested",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 60,
+        "explanation": "Close call."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 60,
+        "explanation": "[CONTESTED] Close call."
+      }
+    },
+    {
+      "name": "api evidence, confidence 59.99 (just under MEDIUM) is refunded",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 59.99,
+        "explanation": "Weak signal."
+      },
+      "expected": {
+        "tier": "low",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 59.99,
+        "explanation": "[LOW CONFIDENCE — refunded] Weak signal."
+      }
+    },
+    {
+      "name": "api evidence, confidence 0 is refunded",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 0,
+        "explanation": "No signal."
+      },
+      "expected": {
+        "tier": "low",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 0,
+        "explanation": "[LOW CONFIDENCE — refunded] No signal."
+      }
+    },
+    {
+      "name": "jina evidence at 95 is capped to 75 and contested, never firm",
+      "fetcher": "jina",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 95,
+        "explanation": "Article confirms the launch."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "CREATOR_WINS",
+        "confidence": 75,
+        "explanation": "[CONTESTED] [via-jina] Article confirms the launch."
+      }
+    },
+    {
+      "name": "scraped evidence at 90 is capped to 75 and contested",
+      "fetcher": "direct",
+      "input": {
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 90,
+        "explanation": "Page shows the event was cancelled."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "CHALLENGERS_WIN",
+        "confidence": 75,
+        "explanation": "[CONTESTED] [via-scrape] Page shows the event was cancelled."
+      }
+    },
+    {
+      "name": "paid bot evidence at 70 keeps its confidence and is contested",
+      "fetcher": "bot-paid",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 70,
+        "explanation": "Report agrees."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "CREATOR_WINS",
+        "confidence": 70,
+        "explanation": "[CONTESTED] [no-fetch] Report agrees."
+      }
+    },
+    {
+      "name": "no evidence at 50 is refunded",
+      "fetcher": "none",
+      "input": {
+        "verdict": "CREATOR_WINS",
+        "confidence": 50,
+        "explanation": "Nothing fetched."
+      },
+      "expected": {
+        "tier": "low",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 50,
+        "explanation": "[LOW CONFIDENCE — refunded] [no-fetch] Nothing fetched."
+      }
+    },
+    {
+      "name": "DRAW at low confidence passes through untiered",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "DRAW",
+        "confidence": 30,
+        "explanation": "Match ended level."
+      },
+      "expected": {
+        "tier": "low",
+        "verdict": "DRAW",
+        "confidence": 30,
+        "explanation": "Match ended level."
+      }
+    },
+    {
+      "name": "DRAW on scraped evidence is capped and tagged but not tiered",
+      "fetcher": "jina",
+      "input": {
+        "verdict": "DRAW",
+        "confidence": 90,
+        "explanation": "Match ended level."
+      },
+      "expected": {
+        "tier": "medium",
+        "verdict": "DRAW",
+        "confidence": 75,
+        "explanation": "[via-jina] Match ended level."
+      }
+    },
+    {
+      "name": "model-issued UNRESOLVABLE passes through unchanged",
+      "fetcher": "coingecko-api",
+      "input": {
+        "verdict": "UNRESOLVABLE",
+        "confidence": 90,
+        "explanation": "Question is ambiguous."
+      },
+      "expected": {
+        "tier": "high",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 90,
+        "explanation": "Question is ambiguous."
+      }
+    },
+    {
+      "name": "model-issued UNRESOLVABLE on scraped evidence skips the fetcher cap",
+      "fetcher": "jina",
+      "input": {
+        "verdict": "UNRESOLVABLE",
+        "confidence": 40,
+        "explanation": "Source page was empty."
+      },
+      "expected": {
+        "tier": "low",
+        "verdict": "UNRESOLVABLE",
+        "confidence": 40,
+        "explanation": "Source page was empty."
+      }
+    }
+  ]
+}

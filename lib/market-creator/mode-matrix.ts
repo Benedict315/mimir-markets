@@ -18,6 +18,12 @@ import {
   type SettlementMode,
   type SubjectType,
 } from "../market-modes";
+import {
+  checkCategoryCreatorCap,
+  parseCategoryCapPolicy,
+  unresolvedCategoryCapPolicy,
+  type CategoryCapPolicy,
+} from "./category-caps";
 
 export type ProposalDisposition =
   /** Create it now. */
@@ -47,6 +53,14 @@ export interface CandidateInput {
   openExposureUsdc: number;
   /** Markets this agent already has open. */
   activeMarkets: number;
+  /**
+   * Per-category open inventory for this creator, when the caller has it.
+   *
+   * Optional so a caller that predates per-category caps keeps its behaviour.
+   * When present it is a hard block alongside the global exposure ceiling, and a
+   * category it cannot resolve refuses the candidate rather than assuming zero.
+   */
+  categoryOpen?: { markets: number; exposureUsdc: number };
   /** Quality score from preflight, 0..100. */
   qualityScore: number;
 }
@@ -75,14 +89,28 @@ export interface CreatorPolicy {
    * modes are varied — otherwise the whole feed is one wallet's opinion.
    */
   maxPerCreatorPerRun: number;
+  /**
+   * Per-category creator caps: open markets and notional exposure inside each
+   * category, each with a configurable default.
+   *
+   * Distinct from `maxPerCategoryPerRun`, which is a per-run diversity quota.
+   * This bounds the creator's *standing inventory* in a category, reusing the
+   * same definition of "open" as `maxOpenExposureUsdc`. See `category-caps.ts`.
+   */
+  categoryCaps: CategoryCapPolicy;
 }
 
 export function defaultCreatorPolicy(
   env: Record<string, string | undefined> = process.env,
 ): CreatorPolicy {
+  const maxOpenExposureUsdc = Number(env.MARKET_CREATOR_MAX_EXPOSURE_USDC ?? 100);
+  // A malformed per-category cap must not silently become "unlimited". It
+  // resolves to a policy that refuses every category; the worker validates the
+  // same value at boot and fails fast with the parse error.
+  const categoryCaps = parseCategoryCapPolicy(env, { defaultMaxExposureUsdc: maxOpenExposureUsdc });
   return {
     maxActiveMarkets: Number(env.MARKET_CREATOR_MAX_ACTIVE ?? 30),
-    maxOpenExposureUsdc: Number(env.MARKET_CREATOR_MAX_EXPOSURE_USDC ?? 100),
+    maxOpenExposureUsdc,
     minQualityScore: Number(env.MARKET_CREATOR_PREFLIGHT_MIN_SCORE ?? 60),
     // Default ON: autonomous publishing is opt-in, per the roadmap's gate that
     // shadow precision must be measured before it is enabled.
@@ -90,6 +118,9 @@ export function defaultCreatorPolicy(
     maxPerCategoryPerRun: Number(env.MARKET_CREATOR_MAX_PER_CATEGORY ?? 2),
     maxPerModePerRun: Number(env.MARKET_CREATOR_MAX_PER_MODE ?? 3),
     maxPerCreatorPerRun: Number(env.MARKET_CREATOR_MAX_PER_CREATOR ?? 3),
+    categoryCaps: categoryCaps.ok
+      ? categoryCaps.policy
+      : unresolvedCategoryCapPolicy(categoryCaps.error),
   };
 }
 
@@ -106,9 +137,9 @@ export interface ModeDecision {
 /**
  * Decide the mode for one candidate.
  *
- * Order is deliberate: hard blocks first (quality, exposure, slots), then the
- * mode's own obligations. A candidate refused for quality must not also be told
- * its liquidity is short — the first reason is the actionable one.
+ * Order is deliberate: hard blocks first (quality, exposure, slots, per-category
+ * caps), then the mode's own obligations. A candidate refused for quality must not
+ * also be told its liquidity is short — the first reason is the actionable one.
  */
 export function decideMode(
   candidate: CandidateInput,
@@ -140,6 +171,26 @@ export function decideMode(
       rationale: "would exceed the agent's open exposure cap",
       blockedBy: `${candidate.openExposureUsdc + candidate.stakeUsdc} > ${policy.maxOpenExposureUsdc}`,
     };
+  }
+
+  // Standing inventory inside the candidate's own category, when the caller has
+  // it. Checked after the global ceiling so the money reason comes first.
+  if (candidate.categoryOpen) {
+    const categoryGate = checkCategoryCreatorCap({
+      category: candidate.category,
+      policy: policy.categoryCaps,
+      openMarkets: candidate.categoryOpen.markets,
+      openExposureUsdc: candidate.categoryOpen.exposureUsdc,
+      stakeUsdc: candidate.stakeUsdc,
+    });
+    if (!categoryGate.allowed) {
+      return {
+        ...base,
+        disposition: "skip",
+        rationale: "would exceed the creator's per-category cap",
+        blockedBy: categoryGate.blockedBy,
+      };
+    }
   }
 
   const settled = (() => {

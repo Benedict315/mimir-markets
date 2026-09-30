@@ -18,6 +18,9 @@ export const EXPLORE_SORT_OPTIONS: ExploreSort[] = [
 /** Wallet participation filter for the live arena. Applied in ExploreClient (needs address). */
 export type ParticipationFilter = "all" | "joined" | "available";
 
+/** Explorer view mode: open markets, AI opportunities, or closed markets */
+export type ExplorerView = "open" | "ai" | "closed";
+
 export interface ExploreFilterState {
   cat: string;
   minStake: number;
@@ -28,6 +31,8 @@ export interface ExploreFilterState {
   participation: ParticipationFilter;
   /** Only markets where the joinable side is the thin one. */
   underdogOnly: boolean;
+  /** Active view tab in explorer */
+  view: ExplorerView;
 }
 
 export const DEFAULT_EXPLORE_FILTERS: ExploreFilterState = {
@@ -39,6 +44,7 @@ export const DEFAULT_EXPLORE_FILTERS: ExploreFilterState = {
   expiringSoon: false,
   participation: "all",
   underdogOnly: false,
+  view: "open",
 };
 
 /** Valores permitidos para `minStake` (URL `?min=`) y chips del sidebar Explore */
@@ -57,7 +63,7 @@ export function normalizeExploreMinStake(n: number): number {
   return Math.min(rounded, 1_000_000);
 }
 
-/** Lee y valida query params (?cat=&min=&sort=&q=). Valores inválidos → defaults. */
+/** Lee y valida query params (?cat=&min=&sort=&q=&view=). Valores inválidos → defaults. */
 export function parseExploreSearchParams(sp: URLSearchParams): ExploreFilterState {
   const catRaw = sp.get("cat") ?? "all";
   const cat =
@@ -80,6 +86,11 @@ export function parseExploreSearchParams(sp: URLSearchParams): ExploreFilterStat
     mineRaw === "joined" || mineRaw === "available" ? mineRaw : "all";
 
   const underdogOnly = sp.get("underdog") === "1";
+  
+  const viewRaw = sp.get("view") ?? "open";
+  const view: ExplorerView =
+    viewRaw === "ai" || viewRaw === "closed" ? viewRaw : "open";
+  
   return {
     cat,
     minStake,
@@ -89,6 +100,7 @@ export function parseExploreSearchParams(sp: URLSearchParams): ExploreFilterStat
     expiringSoon,
     participation,
     underdogOnly,
+    view,
   };
 }
 
@@ -102,6 +114,7 @@ export function serializeExploreFilters(f: ExploreFilterState): string {
   if (f.needsChallengers) p.set("needs", "1");
   if (f.expiringSoon) p.set("soon", "1");
   if (f.participation !== "all") p.set("mine", f.participation);
+  if (f.view !== "open") p.set("view", f.view);
   const q = f.search.trim();
   if (q) p.set("q", q);
   return p.toString();
@@ -155,11 +168,20 @@ export function applyExploreFilters(
 
   const sorted = [...list];
   if (f.sort === "highest") {
-    sorted.sort((a, b) => b.stake_amount - a.stake_amount);
+    sorted.sort((a, b) => {
+      const diff = b.stake_amount - a.stake_amount;
+      return diff !== 0 ? diff : b.id - a.id;
+    });
   } else if (f.sort === "expiring") {
-    sorted.sort((a, b) => a.deadline - b.deadline);
+    sorted.sort((a, b) => {
+      const diff = a.deadline - b.deadline;
+      return diff !== 0 ? diff : b.id - a.id;
+    });
   } else if (f.sort === "upside") {
-    sorted.sort((a, b) => compareByUpside(a, b));
+    sorted.sort((a, b) => {
+      const diff = compareByUpside(a, b);
+      return diff !== 0 ? diff : b.id - a.id;
+    });
   } else if (f.sort === "strength") {
     sorted.sort((a, b) => {
       const aScore = computeClaimQuality({

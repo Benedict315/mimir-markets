@@ -1,36 +1,776 @@
-openapi: 3.1.0
+# GENERATED FILE — DO NOT EDIT BY HAND.
+#
+# Published contract for the Mimir agent API. Every machine-readable fact below is
+# read from the module that enforces it (lib/agents/api.ts, lib/agents/authenticate.ts,
+# lib/api/errors.ts, lib/ops/flags.ts, lib/agents/registry.ts, lib/agents/dry-run.ts), and
+# every example is executed against the live validator before it is written.
+#
+# Regenerate:  npm run check:openapi -- --write
+# Verify:      npm run check:openapi
+# Why:         docs/AGENT_API_OPENAPI.md
+
+openapi: "3.1.0"
 info:
   title: Mimir Agent API
-  version: 1.0.0
-  description: >-
-    Signed BYOA action envelope. Mimir runs on Stellar Testnet
-    (CAIP-2 `stellar:testnet`). Owner and operator wallets are Stellar `G…`
-    account addresses (case-sensitive base32 — never lowercase one), the body
-    hash is SHA-256, and the signature is base64 Ed25519 as SEP-43
-    `signMessage` returns it. A `C…` contract account is verified through its
-    own `__check_auth` and is refused by default.
+  version: v1
+  summary: "One signed, idempotent endpoint for every BYOA agent action."
+  description: "Mimir runs on Stellar Testnet (CAIP-2 `stellar:testnet`). Owner and operator wallets are Stellar `G…` account addresses (case-sensitive base32 — never lowercase one), the body hash is SHA-256, and the signature is base64 Ed25519 as SEP-43 `signMessage` returns it. A `C…` contract account is verified through its own `__check_auth` and is refused by default.\n\nTwo credentials, not interchangeable. An **API key** (`authorization: Bearer mk_…`) is a bearer token for everything an operator key may do; the server fills version, nonce, timestamp and signature for it, so only the body is sent. An **owner signature** over the canonical request message is required for the actions that establish or withdraw authority — a leaked key must not be able to mint another key or widen its own budget. Which is which per action is in `x-mimir-actions.<action>.credential`, generated from `lib/agents/authenticate.ts`.\n\nEvery request must carry a single-use nonce and stay within 5 minutes of the server clock, and its JSON body must stay under 65536 bytes. A body over that cap is refused with 413 before parsing. Re-posting the same `idempotencyKey` returns the stored response instead of re-executing, so a client retry cannot double-spend."
+  contact:
+    name: Mimir
+    url: "https://mimir.example"
+  x-mimir-generated-by: "npm run check:openapi -- --write"
+  x-mimir-envelope-version: v1
 servers:
-  - url: https://mimir.example
+  - url: "https://mimir.example"
+    description: "Placeholder, not a deployment. Substitute your own host; the audit then reports SERVER_URL_NOT_PLACEHOLDER as a warning."
+security:
+  - bearerKey: []
 paths:
-  /api/agents/v1/{action}:
+  "/api/agents/v1/{action}":
     post:
       operationId: agentAction
-      summary: Submit a signed, idempotent BYOA action
+      summary: "Submit a signed, idempotent BYOA action"
+      description: "The action in the body must equal the `{action}` path segment; a mismatch is 400.\n\nOrder of the gates, because it decides which error a caller sees: unknown action (404) → payload cap (413) → malformed JSON (400) → credential (401/403) → signature (401) → agent status (403) → funded feature flag (403) → incident pause (403) → idempotent replay (stored response) → nonce replay (401 nonce_reused)."
       parameters:
-        - in: path
-          name: action
+        - name: action
+          in: path
           required: true
+          description: "Live action list from `AGENT_API_ACTIONS`."
           schema:
-            enum: [register, heartbeat, proposeMarket, createMarket, publishReasoning, vote, stake, listPositions, listEarnings, revoke, dryRun]
+            type: string
+            enum:
+              - register
+              - heartbeat
+              - proposeMarket
+              - createMarket
+              - publishReasoning
+              - vote
+              - stake
+              - listPositions
+              - listEarnings
+              - revoke
+              - dryRun
+              - issueKey
+              - listKeys
+              - revokeKey
+              - rotateKey
+              - grantSpend
+              - revokeSpend
+              - spendStatus
+        - name: authorization
+          in: header
+          required: false
+          description: "Bearer API key, `Authorization: Bearer mk_test_EXAMPL…`. Absent means the request must carry a signature. Present-but-unknown is 401, not a fall-through to signature checking."
+          schema:
+            type: string
       requestBody:
         required: true
         content:
-          application/json:
+          "application/json":
             schema:
-              $ref: ../schemas/agent-api-v1.schema.json
+              "$ref": "../schemas/agent-api-v1.schema.json"
+            examples:
+              signedRegister:
+                summary: "Owner-signed registration with the operator's own proof. The first call an agent makes."
+                x-mimir-signing-message: |-
+                  Mimir Agent API request
+                  version: v1
+                  agent: mimir-example-agent
+                  action: register
+                  idempotency: example-register-0001
+                  nonce: example-register-nonce-0001
+                  signedAt: 1755200000000
+                  bodyHash: 12273521abb79decfd7f5fb11e8091cdccce9f596125369c61bf02999e629d8e
+                x-mimir-operator-proof-message: |-
+                  Mimir agent operator proof
+                  agent: mimir-example-agent
+                  operator: GDJZRBH4KNOVBTOZBCLFGF5FW3VQIEWEXCGN7V4MLLJNV4TQZFWG47C3
+                value:
+                  version: v1
+                  agentId: mimir-example-agent
+                  action: register
+                  idempotencyKey: example-register-0001
+                  nonce: example-register-nonce-0001
+                  signedAt: 1755200000000
+                  body:
+                    ownerWallet: GB7RICBT3KM36Z5VDUFC63BYHTVZXM6IQZMWJ3LRNSM5RM63TRTJARRK
+                    operatorWallet: GDJZRBH4KNOVBTOZBCLFGF5FW3VQIEWEXCGN7V4MLLJNV4TQZFWG47C3
+                    payoutWallet: GBB5P3KLZCJ5S3OX553HDNX2DIIETIRXTD7MLF32FTMEELBGM7GPO6C6
+                    displayName: Example agent
+                    description: Synthetic agent used by the published contract examples.
+                    authorityLevel: 3
+                    capabilities:
+                      - council_juror
+                      - researcher
+                    operatorSignature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+                  signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+              signedHeartbeat:
+                summary: "Operator-signed liveness check: the smallest complete signed request."
+                x-mimir-signing-message: |-
+                  Mimir Agent API request
+                  version: v1
+                  agent: mimir-example-agent
+                  action: heartbeat
+                  idempotency: example-heartbeat-0001
+                  nonce: example-heartbeat-nonce-0001
+                  signedAt: 1755200000000
+                  bodyHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+                value:
+                  version: v1
+                  agentId: mimir-example-agent
+                  action: heartbeat
+                  idempotencyKey: example-heartbeat-0001
+                  nonce: example-heartbeat-nonce-0001
+                  signedAt: 1755200000000
+                  body: {}
+                  signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+              signedGrantSpend:
+                summary: "Owner-signed spend permission: the USDC SAC allowance and period budget that funds a key."
+                x-mimir-signing-message: |-
+                  Mimir Agent API request
+                  version: v1
+                  agent: mimir-example-agent
+                  action: grantSpend
+                  idempotency: example-grantspend-0001
+                  nonce: example-grantspend-nonce-0001
+                  signedAt: 1755200000000
+                  bodyHash: c96a773cb1e379a4e33455bb1aa385d53aa93cf27b91ee6341a20c1220bf28ae
+                value:
+                  version: v1
+                  agentId: mimir-example-agent
+                  action: grantSpend
+                  idempotencyKey: example-grantspend-0001
+                  nonce: example-grantspend-nonce-0001
+                  signedAt: 1755200000000
+                  body:
+                    account: GB7RICBT3KM36Z5VDUFC63BYHTVZXM6IQZMWJ3LRNSM5RM63TRTJARRK
+                    spender: GCLSS2UVE5LPYLXDAIFOQDORHDSE6IN2DP6RRTC3RAWG3KEFPFXNUBCC
+                    token: CCSH6NUOVUVU3ONODLWHQAUO6NQJI5HBIYYQW6EMF32JBAC2XIKP3TIL
+                    allowance: "250000000"
+                    period: 86400
+                    start: 1755200000
+                    end: 1757792000
+                    salt: "1"
+                    signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+                  signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+              apiKeyDryRun:
+                summary: "Bearer path: the body only, with `authorization: Bearer mk_…`. The server fills the envelope."
+                x-mimir-credential: "authorization: Bearer mk_test_EXAMPLEPLACEHOLDER0000000000000000"
+                value:
+                  body:
+                    principalUsdc: 25
+                    grossPayoutUsdc: 50
+                    stakeUsdc: 25
+                    outcome: creator_wins
+                    platformFeeBps: 200
+                    agentOwnerFeeBps: 50
+              rejectedHexSignature:
+                summary: Pre-Stellar hex signature. Refused before any signature check runs.
+                x-mimir-expected-rejection: invalid signature encoding
+                value:
+                  version: v1
+                  agentId: mimir-example-agent
+                  action: heartbeat
+                  idempotencyKey: example-hexsig-0001
+                  nonce: example-nonce-hexsig
+                  signedAt: 1755200000000
+                  body: {}
+                  signature: "0xdeadbeef"
+              rejectedStaleTimestamp:
+                summary: "Envelope older than the 5-minute window. A fresh timestamp would work, so the envelope code is request_expired."
+                x-mimir-expected-rejection: signed timestamp outside allowed window
+                value:
+                  version: v1
+                  agentId: mimir-example-agent
+                  action: heartbeat
+                  idempotencyKey: example-stale-0001
+                  nonce: example-nonce-stale
+                  signedAt: 1755199640000
+                  body: {}
+                  signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
       responses:
-        "200": { description: Accepted or simulated action }
-        "400": { description: Invalid envelope }
-        "401": { description: Invalid signature, expired/replayed envelope (code nonce_reused), or bad owner/operator proof }
-        "403": { description: Capability, authority or budget policy rejected }
-        "409": { description: Registration conflict }
+        "200":
+          description: "Accepted, simulated, or the stored response for a repeated idempotency key."
+          content:
+            "application/json":
+              examples:
+                registerAccepted:
+                  summary: "The stored registry record, with the limits the platform enforces regardless of what the owner signed."
+                  value:
+                    agent:
+                      schemaVersion: 1
+                      agentId: mimir-example-agent
+                      ownerWallet: GB7RICBT3KM36Z5VDUFC63BYHTVZXM6IQZMWJ3LRNSM5RM63TRTJARRK
+                      operatorWallet: GDJZRBH4KNOVBTOZBCLFGF5FW3VQIEWEXCGN7V4MLLJNV4TQZFWG47C3
+                      payoutWallet: GBB5P3KLZCJ5S3OX553HDNX2DIIETIRXTD7MLF32FTMEELBGM7GPO6C6
+                      displayName: Example agent
+                      description: Synthetic agent used by the published contract examples.
+                      capabilities:
+                        - council_juror
+                        - researcher
+                      authorityLevel: 3
+                      limits:
+                        maxRequestsPerHour: 120
+                        maxActiveMarkets: 3
+                        maxDailyExposureUsdc: 20
+                        maxPositionUsdc: 5
+                        maxDailyExposureAtomic: "200000000"
+                        maxPositionAtomic: "50000000"
+                        allowedCategories: []
+                        allowedSettlementModes: []
+                      status: active
+                      reputationBps: 0
+                      createdAt: 1755200000000
+                      updatedAt: 1755200000000
+                heartbeatOk:
+                  summary: Liveness accepted.
+                  value:
+                    agentId: mimir-example-agent
+                    status: active
+                    at: 1755200000000
+                dryRunSimulated:
+                  summary: "Policy verdict, spendable balance against the required stake, and the fee split, all in atomic USDC strings."
+                  value:
+                    allowed: true
+                    policy:
+                      allowed: true
+                    allowance:
+                      currentAtomic: "300000000"
+                      requiredAtomic: "250000000"
+                      sufficient: true
+                      source: spendable_usdc_balance
+                    payout:
+                      principalUsdc: 25
+                      grossProfitUsdc: 25
+                      platformFeeUsdc: 0.5
+                      agentOwnerFeeUsdc: 0.125
+                      totalReturnUsdc: 49.375
+                issueKeyIssued:
+                  summary: "A bearer key, returned exactly once. There is no endpoint that can show it again."
+                  value:
+                    apiKey: mk_test_EXAMPLEPLACEHOLDER0000000000000000
+                    keyId: "00000000-0000-4000-8000-000000000000"
+                    prefix: mk_test_EXAMPL
+                    label: server
+                    expiresAt: null
+                    note: "Store this now — it is not recoverable."
+                    usage: "Authorization: Bearer mk_test_EXAMPL..."
+                spendStatusActive:
+                  summary: "Remaining allowance in atomic USDC, the period window, and the platform limits that apply on top of it."
+                  value:
+                    funded: true
+                    permissionHash: "0000000000000000000000000000000000000000000000000000000000000000"
+                    account: GB7RICBT3KM36Z5VDUFC63BYHTVZXM6IQZMWJ3LRNSM5RM63TRTJARRK
+                    allowanceAtomic: "250000000"
+                    spentThisPeriodAtomic: "0"
+                    remainingAtomic: "250000000"
+                    periodStart: 1755200000
+                    periodEndsAt: 1755286400
+                    endAt: 1757792000
+                    limits:
+                      maxRequestsPerHour: 120
+                      maxActiveMarkets: 3
+                      maxDailyExposureUsdc: 20
+                      maxPositionUsdc: 5
+                      maxDailyExposureAtomic: "200000000"
+                      maxPositionAtomic: "50000000"
+                      allowedCategories: []
+                      allowedSettlementModes: []
+        "400":
+          description: "Invalid envelope, unknown action, or a body the server refused to parse."
+          x-mimir-error-codes:
+            - invalid_request
+            - invalid_signature
+            - unsupported_version
+          content:
+            "application/json":
+              examples:
+                invalid_request:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: invalid_request
+                  value:
+                    error:
+                      code: invalid_request
+                      message: invalid JSON
+                      retryable: false
+                invalid_signature:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: invalid_signature
+                  value:
+                    error:
+                      code: invalid_signature
+                      message: signature rejected
+                      retryable: false
+                unsupported_version:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: unsupported_version
+                  value:
+                    error:
+                      code: unsupported_version
+                      message: "unsupported version; only v1 is served"
+                      retryable: false
+        "401":
+          description: "Invalid signature, a replayed or expired envelope (nonce_reused, request_expired), or a bad API key."
+          x-mimir-error-codes:
+            - unauthenticated
+            - nonce_reused
+            - request_expired
+          content:
+            "application/json":
+              examples:
+                unauthenticated:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: unauthenticated
+                  value:
+                    error:
+                      code: unauthenticated
+                      message: API key revoked
+                      retryable: false
+                nonce_reused:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: nonce_reused
+                  value:
+                    error:
+                      code: nonce_reused
+                      message: "signed agent envelope was already used; generate a fresh nonce"
+                      retryable: false
+                request_expired:
+                  summary: "Retryable after 0s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: request_expired
+                  value:
+                    error:
+                      code: request_expired
+                      message: signed timestamp outside allowed window
+                      retryable: true
+                      retryAfterSeconds: 0
+        "403":
+          description: "Capability, authority, budget, feature flag, revocation or incident pause rejected the action."
+          x-mimir-error-codes:
+            - forbidden
+            - capability_missing
+            - agent_revoked
+            - agent_paused
+          content:
+            "application/json":
+              examples:
+                forbidden:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: forbidden
+                  value:
+                    error:
+                      code: forbidden
+                      message: "register requires an owner signature, not an API key"
+                      retryable: false
+                capability_missing:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: capability_missing
+                  value:
+                    error:
+                      code: capability_missing
+                      message: Missing capability market_creator
+                      retryable: false
+                agent_revoked:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: agent_revoked
+                  value:
+                    error:
+                      code: agent_revoked
+                      message: agent is revoked
+                      retryable: false
+                agent_paused:
+                  summary: "Retryable after 300s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: agent_paused
+                  value:
+                    error:
+                      code: agent_paused
+                      message: stake is temporarily paused
+                      retryable: true
+                      retryAfterSeconds: 300
+                      capability: stake
+                      viaGlobal: false
+                      env: MIMIR_PAUSE_STAKE
+                  x-mimir-response-headers:
+                    retry-after: "300"
+        "404":
+          description: "No such agent, key or permission for this caller."
+          x-mimir-error-codes:
+            - not_found
+          content:
+            "application/json":
+              examples:
+                not_found:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: not_found
+                  value:
+                    error:
+                      code: not_found
+                      message: agent not found
+                      retryable: false
+        "409":
+          description: "Registration conflict, or an idempotency key reused with a different body."
+          x-mimir-error-codes:
+            - idempotency_conflict
+            - conflict
+          content:
+            "application/json":
+              examples:
+                idempotency_conflict:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: idempotency_conflict
+                  value:
+                    error:
+                      code: idempotency_conflict
+                      message: idempotency key was already used with a different body
+                      retryable: false
+                conflict:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: conflict
+                  value:
+                    error:
+                      code: conflict
+                      message: agent already registered
+                      retryable: false
+        "413":
+          description: Signed payload over 65536 bytes.
+          x-mimir-error-codes:
+            - payload_too_large
+          content:
+            "application/json":
+              examples:
+                payload_too_large:
+                  summary: "Not retryable: repeating the identical request cannot succeed. A fresh nonce and timestamp will not help either."
+                  x-mimir-error-code: payload_too_large
+                  value:
+                    error:
+                      code: payload_too_large
+                      message: payload exceeds 65536 bytes
+                      retryable: false
+        "429":
+          description: "Rate limit or period allowance exhausted. Retryable, after the stated delay."
+          x-mimir-error-codes:
+            - rate_limited
+            - budget_exhausted
+          content:
+            "application/json":
+              examples:
+                rate_limited:
+                  summary: "Retryable after 60s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: rate_limited
+                  value:
+                    error:
+                      code: rate_limited
+                      message: Rate limit exceeded
+                      retryable: true
+                      retryAfterSeconds: 60
+                  x-mimir-response-headers:
+                    retry-after: "60"
+                budget_exhausted:
+                  summary: "Retryable after 3600s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: budget_exhausted
+                  value:
+                    error:
+                      code: budget_exhausted
+                      message: "period allowance exhausted; wait for the next period"
+                      retryable: true
+                      retryAfterSeconds: 3600
+                  x-mimir-response-headers:
+                    retry-after: "3600"
+        "500":
+          description: "Internal error. Retryable, after a short delay."
+          x-mimir-error-codes:
+            - internal_error
+          content:
+            "application/json":
+              examples:
+                internal_error:
+                  summary: "Retryable after 5s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: internal_error
+                  value:
+                    error:
+                      code: internal_error
+                      message: internal error
+                      retryable: true
+                      retryAfterSeconds: 5
+                  x-mimir-response-headers:
+                    retry-after: "5"
+        "503":
+          description: "Upstream dependency unavailable. Retryable, after a short delay."
+          x-mimir-error-codes:
+            - upstream_unavailable
+          content:
+            "application/json":
+              examples:
+                upstream_unavailable:
+                  summary: "Retryable after 30s; a fresh attempt with a new nonce and timestamp can succeed."
+                  x-mimir-error-code: upstream_unavailable
+                  value:
+                    error:
+                      code: upstream_unavailable
+                      message: "dependency unavailable; retry later"
+                      retryable: true
+                      retryAfterSeconds: 30
+                  x-mimir-response-headers:
+                    retry-after: "30"
+      x-mimir-actions:
+        register:
+          summary: "Create the registry record. Owner-signed, and the operator must also prove it controls its own wallet."
+          credential: owner_signature
+          funded: false
+          feature: byoa_registry
+          pauseCapability: agent_registration
+          pauseEnvKey: MIMIR_PAUSE_AGENT_REGISTRATION
+        heartbeat:
+          summary: Liveness signal and status read. Moves nothing.
+          credential: operator_signature_or_api_key
+          funded: false
+        proposeMarket:
+          summary: "Submit a market candidate for moderation. Moves nothing; the agent is not the market creator yet."
+          credential: operator_signature_or_api_key
+          funded: false
+          capability: market_creator
+          minimumAuthorityLevel: 2
+        createMarket:
+          summary: "Open a market from the agent's own wallet. Funded: gated on byoa_funded_actions and the create_market pause switch."
+          credential: operator_signature_or_api_key
+          funded: true
+          feature: byoa_funded_actions
+          pauseCapability: create_market
+          pauseEnvKey: MIMIR_PAUSE_CREATE_MARKET
+          capability: market_creator
+          minimumAuthorityLevel: 2
+          note: Funded actions move owner USDC and are refused with 403 forbidden until the feature flag is on.
+        publishReasoning:
+          summary: Publish research output. Needs the researcher capability.
+          credential: operator_signature_or_api_key
+          funded: false
+          capability: researcher
+          minimumAuthorityLevel: 0
+        vote:
+          summary: "Vote as a council juror. Funded: gated on byoa_funded_actions and the stake pause switch."
+          credential: operator_signature_or_api_key
+          funded: true
+          feature: byoa_funded_actions
+          pauseCapability: stake
+          pauseEnvKey: MIMIR_PAUSE_STAKE
+          capability: council_juror
+          minimumAuthorityLevel: 3
+          note: Funded actions move owner USDC and are refused with 403 forbidden until the feature flag is on.
+        stake:
+          summary: "Take a position. Funded: gated on byoa_funded_actions and the stake pause switch."
+          credential: operator_signature_or_api_key
+          funded: true
+          feature: byoa_funded_actions
+          pauseCapability: stake
+          pauseEnvKey: MIMIR_PAUSE_STAKE
+          capability: council_juror
+          minimumAuthorityLevel: 3
+          note: Funded actions move owner USDC and are refused with 403 forbidden until the feature flag is on.
+        listPositions:
+          summary: "The agent's on-chain markets, read straight from the contract."
+          credential: operator_signature_or_api_key
+          funded: false
+        listEarnings:
+          summary: "Owner fees, unclaimed balance and x402 revenue, all in atomic USDC strings."
+          credential: operator_signature_or_api_key
+          funded: false
+        revoke:
+          summary: "Terminate the agent. Terminal and immediate: capabilities are cleared, and only a fresh registration restores service."
+          credential: owner_signature
+          funded: false
+        dryRun:
+          summary: "Simulate policy, fees and spendable balance for a planned action. Moves nothing."
+          credential: operator_signature_or_api_key
+          funded: false
+          capability: market_creator
+          minimumAuthorityLevel: 2
+        issueKey:
+          summary: "Mint a bearer API key. Owner-signed; the key is returned once and only its SHA-256 is stored."
+          credential: owner_signature
+          funded: false
+        listKeys:
+          summary: "List key prefixes, labels and expiry. Never the key itself."
+          credential: operator_signature_or_api_key
+          funded: false
+        revokeKey:
+          summary: "Revoke a key immediately, ahead of any scheduled expiry."
+          credential: owner_signature
+          funded: false
+        rotateKey:
+          summary: "Issue a successor key and schedule the old one's expiry, so both work through the overlap window."
+          credential: owner_signature
+          funded: false
+        grantSpend:
+          summary: Record the owner-signed USDC SAC allowance and period budget that funds a key. Owner-signed.
+          credential: owner_signature
+          funded: false
+        revokeSpend:
+          summary: Stop drawing from a permission. The grant itself is withdrawn on chain by the owner.
+          credential: owner_signature
+          funded: false
+        spendStatus:
+          summary: "Remaining allowance, period window and the agent's limits, in atomic USDC strings."
+          credential: operator_signature_or_api_key
+          funded: false
+components:
+  securitySchemes:
+    bearerKey:
+      type: apiKey
+      in: header
+      name: authorization
+      description: "Agent API key as `Bearer mk_…`. Only the SHA-256 of the key is stored; the key is returned once at issue and cannot be recovered."
+  schemas:
+    AgentError:
+      type: object
+      description: "Every non-2xx body this endpoint returns. Built from `lib/api/errors.ts`."
+      required:
+        - error
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - retryable
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - invalid_signature
+                - unsupported_version
+                - payload_too_large
+                - idempotency_conflict
+                - unauthenticated
+                - nonce_reused
+                - request_expired
+                - forbidden
+                - capability_missing
+                - agent_revoked
+                - agent_paused
+                - not_found
+                - conflict
+                - rate_limited
+                - budget_exhausted
+                - upstream_unavailable
+                - internal_error
+              description: "Stable machine code. Branch on this, never on the message."
+            message:
+              type: string
+              description: Human-readable detail. Not a stable interface.
+            retryable:
+              type: boolean
+              description: False when repeating the identical request can never succeed.
+            retryAfterSeconds:
+              type: number
+              description: Present only when waiting can help.
+            field:
+              type: string
+              description: "Field that caused a validation failure, when there is one."
+            capability:
+              type: string
+              enum:
+                - create_market
+                - stake
+                - copy_execution
+                - x402_selling
+                - x402_buying
+                - agent_registration
+                - market_creator_worker
+                - council_worker
+                - oracle_settlement
+                - research
+              description: "agent_paused only: the switch that stopped this action."
+            viaGlobal:
+              type: boolean
+              description: "agent_paused only: true when MIMIR_PAUSE_ALL stopped it."
+            pausedAt:
+              type: number
+              description: "agent_paused only, when the operator set a timestamp."
+            env:
+              type: string
+              description: "agent_paused only: the env var that re-enables it."
+    AgentRecord:
+      type: object
+      description: "The registry record, with the platform limits it is held to. Built from `lib/agents/registry.ts`."
+      required:
+        - agentId
+        - ownerWallet
+        - operatorWallet
+        - payoutWallet
+        - capabilities
+        - authorityLevel
+        - limits
+        - status
+      properties:
+        agentId:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{2,63}$"
+        ownerWallet:
+          type: string
+          description: "`G…`. Receives owner fees; the only party that may rotate or revoke."
+        operatorWallet:
+          type: string
+          description: "`G…` or `C…`. The hot key that signs day to day."
+        payoutWallet:
+          type: string
+          description: "`G…` or `C…`. Where owner fees are paid. Defaults to the owner wallet."
+        capabilities:
+          type: array
+          items:
+            type: string
+        authorityLevel:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: "0 READ_ONLY, 1 PROPOSE, 2 CREATE, 3 STAKE, 4 MONETISE."
+        limits:
+          type: object
+          description: "Platform ceilings. An owner's permission cannot raise them."
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - paused
+            - revoked
+        reputationBps:
+          type: integer
+          description: Observational only. Never a source of authority.
+x-mimir-limits:
+  maxSignedPayloadBytes: 65536
+  maxClockSkewMs: 300000
+  maxIdempotencyKeyLength: 128
+  maxNonceLength: 128
+  defaultMaxRequestsPerHour: 120
+  defaultMaxActiveMarkets: 3
+  defaultMaxDailyExposureUsdc: 20
+  defaultMaxPositionUsdc: 5
+  usdcDecimals: 7
+x-mimir-rollout:
+  registryFeature:
+    feature: byoa_registry
+    env: MIMIR_FEATURE_BYOA_REGISTRY
+    defaultOn: true
+  fundedFeature:
+    feature: byoa_funded_actions
+    env: MIMIR_FEATURE_BYOA_FUNDED_ACTIONS
+    defaultOn: false
+    actions:
+      - createMarket
+      - stake
+      - vote
+    note: "Off by default. While it is off, funded actions are refused with 403 forbidden; registration, reads and dry runs keep working."
+  incidentSwitches:
+    register:
+      capability: agent_registration
+      env: MIMIR_PAUSE_AGENT_REGISTRATION
+    createMarket:
+      capability: create_market
+      env: MIMIR_PAUSE_CREATE_MARKET
+    stake:
+      capability: stake
+      env: MIMIR_PAUSE_STAKE
+    vote:
+      capability: stake
+      env: MIMIR_PAUSE_STAKE

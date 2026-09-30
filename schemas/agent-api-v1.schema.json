@@ -1,22 +1,86 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mimir.example/schemas/agent-api-v1.schema.json",
-  "title": "Signed Mimir Agent API request",
+  "title": "Mimir Agent API request",
+  "description": "One endpoint serves every agent action. Send the signed envelope, or — on the bearer path — just the body: the server fills version, nonce, timestamp and signature from the API key. GENERATED from lib/agents/api.ts by `npm run check:openapi -- --write`; edit that module, not this file.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "agentId", "action", "idempotencyKey", "nonce", "signedAt", "body", "signature"],
   "properties": {
-    "version": { "const": "v1" },
-    "agentId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
-    "action": { "enum": ["register", "heartbeat", "proposeMarket", "createMarket", "publishReasoning", "vote", "stake", "listPositions", "listEarnings", "revoke", "dryRun"] },
-    "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "nonce": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "signedAt": { "type": "integer" },
-    "body": {},
+    "version": {
+      "const": "v1",
+      "description": "Envelope version. Only \"v1\" is served."
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}$",
+      "description": "Registry id. On the API-key path the key's own agent wins and any claimed value must match it."
+    },
+    "action": {
+      "enum": [
+        "register",
+        "heartbeat",
+        "proposeMarket",
+        "createMarket",
+        "publishReasoning",
+        "vote",
+        "stake",
+        "listPositions",
+        "listEarnings",
+        "revoke",
+        "dryRun",
+        "issueKey",
+        "listKeys",
+        "revokeKey",
+        "rotateKey",
+        "grantSpend",
+        "revokeSpend",
+        "spendStatus"
+      ],
+      "description": "Must equal the {action} path segment. The action list is the live one in lib/agents/api.ts."
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Client-chosen replay key. Re-posting the same key returns the stored response instead of re-executing."
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Single-use value, consumed for the envelope's freshness window (300000 ms). A replay is refused as nonce_reused."
+    },
+    "signedAt": {
+      "type": "integer",
+      "description": "Epoch milliseconds, within 300000 ms (5 minutes) of the server clock."
+    },
+    "body": {
+      "description": "Action payload. Undefined here by design: each action's credential, funding gate and incident switch are listed under x-mimir-actions."
+    },
     "signature": {
       "type": "string",
-      "description": "Base64 Ed25519 signature over the canonical request message, as SEP-43 signMessage returns it. Mirrors the check in lib/agents/api.ts.",
-      "pattern": "^[A-Za-z0-9+/]{16,}={0,2}$"
+      "pattern": "^[A-Za-z0-9+/]{16,}={0,2}$",
+      "description": "Base64 Ed25519 signature over the canonical request message, as SEP-43 signMessage returns it. Mirrors the check in lib/agents/api.ts."
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "signature"
+        ]
+      },
+      "then": {
+        "required": [
+          "version",
+          "agentId",
+          "action",
+          "idempotencyKey",
+          "nonce",
+          "signedAt",
+          "body"
+        ]
+      }
+    }
+  ]
 }

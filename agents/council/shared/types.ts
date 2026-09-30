@@ -76,6 +76,7 @@ export interface PersonaDecision {
     | "no-pool-imbalance"
     | "no-whale-yet"
     | "no-evidence"
+    | "stale-evidence"
     | "llm-failed";
 }
 
@@ -99,6 +100,14 @@ export interface EvidenceCacheEntry {
   fetcher: string;
   /** SHA-256 of the text, bare hex. */
   hash:    string;
+  /**
+   * Epoch ms when the fetch completed.  Populated for all real fetches;
+   * absent (undefined) only for the "no URL / failed" placeholder entries so
+   * callers can distinguish "no-evidence" from "evidence that is stale".
+   */
+  fetchedAt?: number;
+  /** Normalised source URL after any redirects.  Absent for placeholder entries. */
+  sourceUrl?: string;
 }
 
 /**

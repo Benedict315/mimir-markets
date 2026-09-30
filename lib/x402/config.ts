@@ -77,13 +77,18 @@ export function X402_SETTLEMENT_SOURCE(): string {
  * round trip, and short enough that a proof is not worth harvesting. (Harvesting
  * it does not work anyway — the proof is signed by the payer's key — but a narrow
  * window is what makes that a second line of defence rather than the only one.)
+ *
+ * This constant is used by the verification layer to expire quotes before
+ * verification, ensuring contract-first accounting and clear market semantics.
  */
 export const X402_PAYMENT_MAX_AGE_MS = (() => {
   const raw = Number(process.env.X402_PAYMENT_MAX_AGE_MS ?? 0);
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5 * 60 * 1000;
 })();
 
-/** Default seller — usually the oracle wallet. Persona routes override per-request. */
+/**
+ * Default seller — usually the oracle wallet. Persona routes override per-request.
+ */
 export function sellerAddress(payTo?: string): string {
   const addr = (payTo ?? process.env.SELLER_ADDRESS ?? "").split(/\s+#/)[0].trim();
   if (!addr || !(isAccountAddress(addr) || isContractAddress(addr))) {

@@ -22,6 +22,7 @@ import { decodePaymentResponseHeader } from "@x402/core/http";
 import type { PaymentPolicy } from "@x402/core/client";
 import type { PaymentRequirements } from "@x402/core/types";
 
+import { isPaused } from "../ops/flags";
 import { X402_NETWORK } from "./config";
 import { ExactStellarClient } from "./stellar-scheme";
 import type { AgentWallet } from "../agent-wallets";
@@ -30,7 +31,9 @@ export function assertX402BuyingEnabled(address: string, env: Record<string, str
   // Not lowercased: the pause list now holds Stellar `G…` keys, which are
   // case-sensitive base32.
   const paused = new Set((env.MIMIR_PAUSED_X402_BUYERS ?? "").split(",").map((item) => item.trim()).filter(Boolean));
-  if (env.MIMIR_PAUSE_X402_BUYING === "1" || paused.has(address.trim())) throw new Error("x402 buying paused");
+  // Through the shared switch, so MIMIR_PAUSE_ALL stops buying too: this path
+  // submits its own payment, so a global pause that skipped it would still spend.
+  if (isPaused("x402_buying", env) || paused.has(address.trim())) throw new Error("x402 buying paused");
 }
 
 export interface PayingWallet {
@@ -88,6 +91,7 @@ export class PaymentBudgetExceeded extends Error {
   constructor(
     readonly priceUnits: bigint,
     readonly capUnits: bigint,
+    readonly quoteId?: string,
   ) {
     super(`payment price ${priceUnits} USDC atomic units exceeds budget cap ${capUnits}`);
     this.name = "PaymentBudgetExceeded";
@@ -122,7 +126,7 @@ function budgetPolicy(capUnits: bigint, onRefusal: (error: PaymentBudgetExceeded
         (min, r) => (BigInt(r.amount) < min ? BigInt(r.amount) : min),
         BigInt(onNetwork[0].amount),
       );
-      const refusal = new PaymentBudgetExceeded(cheapest, capUnits);
+      const refusal = new PaymentBudgetExceeded(cheapest, capUnits, cheapest.toString());
       onRefusal(refusal);
       throw refusal;
     }

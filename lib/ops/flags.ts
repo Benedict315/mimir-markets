@@ -30,6 +30,9 @@ export const PAUSABLE = [
   "market_creator_worker",
   "council_worker",
   "oracle_settlement",
+  // Outbound source fetches through `lib/research/gateway.ts`. Listed here rather
+  // than read ad hoc so `MIMIR_PAUSE_ALL` reaches it like every other switch.
+  "research",
 ] as const;
 export type Pausable = (typeof PAUSABLE)[number];
 
@@ -49,7 +52,7 @@ export function isNeverPausable(value: string): value is NeverPausable {
 }
 
 /** MIMIR_PAUSE_STAKE=1 pauses staking. */
-function envKeyFor(capability: Pausable): string {
+export function pauseEnvKey(capability: Pausable): string {
   return `MIMIR_PAUSE_${capability.toUpperCase()}`;
 }
 
@@ -93,7 +96,7 @@ export function buildPauseDetail(
 
   const rawAt = state.viaGlobal
     ? env.MIMIR_PAUSE_ALL_AT
-    : env[`${envKeyFor(capability)}_AT`];
+    : env[`${pauseEnvKey(capability)}_AT`];
   const pausedAt =
     rawAt !== undefined && /^\d+$/.test(rawAt.trim())
       ? parseInt(rawAt.trim(), 10)
@@ -112,11 +115,11 @@ export function pauseState(
   capability: Pausable,
   env: Record<string, string | undefined> = process.env,
 ): PauseState {
-  const specific = env[envKeyFor(capability)] === "1";
+  const specific = env[pauseEnvKey(capability)] === "1";
   if (specific) {
     return {
       paused: true,
-      reason: env[`${envKeyFor(capability)}_REASON`] ?? env.MIMIR_PAUSE_REASON,
+      reason: env[`${pauseEnvKey(capability)}_REASON`] ?? env.MIMIR_PAUSE_REASON,
       viaGlobal: false,
     };
   }
@@ -162,6 +165,7 @@ export const FEATURES = [
   "virtual_baskets",
   "agent_baskets",
   "fee_policy",
+  "x402_quote_expiry",
   // Durable nonce persistence with per-row TTL expiry. ON by default — this is a
   // security property (replay protection), not a product feature. The flag exists
   // so an operator can see it in the feature list and confirm it is always on.
@@ -200,6 +204,9 @@ const FEATURE_DEFAULTS: Record<Feature, boolean> = {
   // independent audit yet (see docs/LAUNCH_GATE_STATUS.md). Turning this on before
   // that gate closes would charge fees against an escrow nobody has reviewed.
   fee_policy: false,
+  // x402_quote_expiry: Enforces strict expiration on payment quotes to preserve
+  // contract-first accounting and prevent stale quote exploitation.
+  x402_quote_expiry: true,
   // Nonce persistence is a security invariant, not a product rollout. Default ON
   // so no deploy step is needed; only disable in isolated local dev.
   nonce_persistence: true,

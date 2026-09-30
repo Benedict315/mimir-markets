@@ -1,10 +1,12 @@
 import {
   CLAIM_DRAFT_CATEGORY_IDS,
+  CLAIM_DRAFT_MAX_CANDIDATES,
   type ClaimDraftCategory,
   type ClaimDraftSourceType,
   type SourceClaimDraftCandidate,
   type SourceClaimDraftResponse,
 } from "@/lib/claimDrafts";
+import claimDraftSchema from "@/schemas/claim-draft-v1.schema.json";
 import { normalizeResolutionSource } from "@/lib/constants";
 import {
   EvidenceFetchError,
@@ -294,67 +296,8 @@ function createDraftPrompt(args: {
   ].join("\n");
 }
 
-function getGeminiDraftSchema() {
-  return {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      sourceSummary: {
-        type: "string",
-        description: "One or two short sentences summarizing the source.",
-      },
-      rejectionReason: {
-        type: ["string", "null"],
-        description: "Why no candidates were produced, if applicable.",
-      },
-      candidates: {
-        type: "array",
-        minItems: 0,
-        maxItems: 3,
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            category: {
-              type: "string",
-              enum: [...CLAIM_DRAFT_CATEGORY_IDS],
-            },
-            claimText: { type: "string" },
-            sideA: { type: "string" },
-            sideB: { type: "string" },
-            deadlineAt: { type: "string", format: "date-time" },
-            timezone: { type: "string" },
-            primaryResolutionSource: { type: "string", format: "uri" },
-            settlementRule: { type: "string" },
-            ambiguityFlags: {
-              type: "array",
-              items: { type: "string" },
-              minItems: 0,
-              maxItems: 4,
-            },
-            confidenceScore: {
-              type: "integer",
-              minimum: 0,
-              maximum: 100,
-            },
-          },
-          required: [
-            "category",
-            "claimText",
-            "sideA",
-            "sideB",
-            "deadlineAt",
-            "timezone",
-            "primaryResolutionSource",
-            "settlementRule",
-            "ambiguityFlags",
-            "confidenceScore",
-          ],
-        },
-      },
-    },
-    required: ["sourceSummary", "rejectionReason", "candidates"],
-  };
+export function getGeminiDraftSchema() {
+  return claimDraftSchema;
 }
 
 async function callGeminiDraftModel(prompt: string) {
@@ -414,6 +357,7 @@ export function sanitizeGeneratedDrafts(args: {
   sourceUrl: string;
   sourceType: ClaimDraftSourceType;
   payload: GeminiCandidatePayload;
+  now?: number;
 }) {
   const sourceSummary =
     typeof args.payload.sourceSummary === "string" && args.payload.sourceSummary.trim()
@@ -427,7 +371,7 @@ export function sanitizeGeneratedDrafts(args: {
   const seenClaims = new Set<string>();
   let filteredUnsupportedShape = false;
   const candidates: SourceClaimDraftCandidate[] = Array.isArray(args.payload.candidates)
-    ? args.payload.candidates.flatMap((candidate) => {
+    ? args.payload.candidates.slice(0, CLAIM_DRAFT_MAX_CANDIDATES).flatMap((candidate) => {
         if (!candidate || typeof candidate !== "object") {
           return [];
         }
@@ -474,7 +418,7 @@ export function sanitizeGeneratedDrafts(args: {
           !settlementRule ||
           settlementRule.length < 20 ||
           !Number.isFinite(parsedDeadline) ||
-          parsedDeadline <= Date.now() ||
+          parsedDeadline <= (args.now ?? Date.now()) ||
           seenClaims.has(dedupeKey)
         ) {
           return [];

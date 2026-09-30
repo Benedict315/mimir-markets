@@ -110,6 +110,26 @@ async function advanceCursor(key: string, newValue: number): Promise<void> {
   await setSyncMeta(key, String(newValue));
 }
 
+/**
+ * Recover from a corrupted or missing cursor by falling back to a safe default.
+ *
+ * This is the fail-closed path: if the cursor is unusable, we restart from a
+ * known-good position rather than proceeding with bad state that could skip
+ * data or duplicate work.
+ */
+async function recoverCursor(key: string, fallback: number): Promise<number> {
+  const current = await getSyncMeta(key);
+  const validated = validateCursorValue(current, key, "settlement-index");
+  
+  if (validated === null) {
+    console.warn(`[settlement-index] Recovering cursor ${key} to fallback value ${fallback}`);
+    await setSyncMeta(key, String(fallback));
+    return fallback;
+  }
+  
+  return validated;
+}
+
 export interface SettlementSyncResult {
   settlements: number;
   accruals: number;

@@ -38,6 +38,18 @@ import { callLLM, activeLLMModel, activeLLMProvider, extractJson } from "../../l
 import { fetchWithBudget, payingWalletFor } from "../../lib/x402/buyer";
 import { PRICES, priceToUsdcUnits } from "../../lib/x402/config";
 import { reportingPoll } from "../../lib/ops/heartbeat";
+import {
+  BackoffError,
+  DependencyFailureError,
+  MalformedInputError,
+  StaleStateError,
+  DuplicateActionError,
+  CancelledByOperatorError,
+  PausedWorkerError,
+  TRADERS_BACKOFF,
+  describeBackoffError,
+  withBackoff,
+} from "../../lib/ops/backoff-policies";
 import { AUTHORITY_LEVELS, defaultLimits, REGISTRY_SCHEMA_VERSION, type AgentRecord } from "../../lib/agents/registry";
 import { loadAgent, saveAgent } from "../../lib/agents/store";
 import { getClaimsByFilter, getChallengersByClaimId } from "../../lib/db";
@@ -287,14 +299,22 @@ async function runTrader(persona: TraderPersona): Promise<void> {
     try {
       // One signature: `challenge_claim` carries auth for exactly this transfer of
       // exactly this amount, so there is no approve leg to land first.
-      const result = await challengeClaim(wallet.signer, claim.id, persona.stakeUsdc);
+      const rawResult = await withBackoff("traders", () => challengeClaim(wallet.signer, claim.id, persona.stakeUsdc), {
+        policy: TRADERS_BACKOFF,
+      });
+      const result = rawResult as { txHash: string; explorerUrl?: string } | undefined;
+      if (!result) continue;
       console.log(
         `[traders]   ✓ staked ${persona.stakeUsdc} USDC on #${claim.id} — ${result.explorerUrl ?? result.txHash}`,
       );
       staked += 1;
     } catch (err) {
-      // A contract error is one claim's problem, not the cycle's: keep going.
-      console.warn(`[traders]   ✗ #${claim.id} stake failed:`, err instanceof Error ? err.message : err);
+      if (err instanceof BackoffError) {
+        console.warn(`[traders]   ✗ #${claim.id} stake backed off: ${describeBackoffError(err)}`);
+      } else {
+        // A contract error is one claim's problem, not the cycle's: keep going.
+        console.warn(`[traders]   ✗ #${claim.id} stake failed:`, err instanceof Error ? err.message : err);
+      }
     }
   }
 }

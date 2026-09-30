@@ -38,7 +38,7 @@ import {
   proofPayer,
 } from "./stellar-scheme";
 import { recordPayment } from "../paid-revenue";
-import { checkWriteAllowed } from "../ops/flags";
+import { sellingPausedResponse } from "./kill-switch";
 
 /**
  * A settled payment lands here exactly once per request. Awaited by the SDK, so
@@ -206,19 +206,36 @@ export function paidRoute<T>(
   // x402 selling pauses independently of the rest of the app: if Horizon is
   // degraded we stop selling — a verifier that cannot read the ledger must refuse
   // rather than guess — while market settlement and withdrawal keep working.
+  //
+  // Quotes expire before verification to preserve contract-first accounting,
+  // clear market semantics, and safe agent operations. The `withX402` wrapper
+  // enforces this by rejecting stale proofs during the scheme's settle step.
   const withKillSwitch = async (req: NextRequest): Promise<NextResponse<T>> => {
-    const gate = checkWriteAllowed({ capability: "x402_selling" });
-    if (!gate.allowed) {
-      return NextResponse.json(
-        { error: "paid endpoints are temporarily unavailable", detail: gate.detail },
-        { status: 503, headers: { "retry-after": "60" } },
-      ) as NextResponse<T>;
+    const paused = sellingPausedResponse();
+    if (paused) {
+      return NextResponse.json(paused.body, {
+        status: paused.status,
+        headers: paused.headers,
+      }) as NextResponse<T>;
     }
     const { authorizeRequest } = await import("@/lib/api/policy");
+    const { verifyBrowserOrigin } = await import("@/lib/api/origin");
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
     const wallet = paymentPayer(req) || undefined;
     const tier = wallet ? "authenticated_user" : "public_read";
-    const rlGate = authorizeRequest(tier, { route: req.nextUrl.pathname, ip, wallet });
+    
+    // We assume non-GET methods mutate value. If an endpoint requires an idempotency key,
+    // it will be enforced by the policy.
+    const mutatesValue = req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS";
+    const originValid = verifyBrowserOrigin(req);
+    
+    const rlGate = authorizeRequest(tier, { 
+      route: req.nextUrl.pathname, 
+      ip, 
+      wallet,
+      mutatesValue,
+      originValid,
+    });
     if (!rlGate.allowed && rlGate.error) {
       return NextResponse.json(rlGate.error.body, { status: rlGate.error.status, headers: rlGate.error.headers }) as NextResponse<T>;
     }

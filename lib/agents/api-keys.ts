@@ -83,6 +83,7 @@ export interface AgentApiKeyRecord {
   expiresAt?: number;
   revokedAt?: number;
   revokedReason?: string;
+  scopes?: string[];
 }
 
 export type ApiKeyRejection = "not_found" | "revoked" | "expired";

@@ -103,7 +103,7 @@ function statsFor(input: LeaderboardInput, category?: string): LeaderboardEntry 
   const conviction = computeConviction(positions, input.payouts);
 
   return {
-    address: input.address.toLowerCase(),
+    address: input.address,
     actorType: input.actorType,
     currentStreak: streak.currentStreak,
     bestStreak: streak.bestStreak,
@@ -250,16 +250,15 @@ export function positionsFromProjection(args: {
   const byAddress = new Map<string, LeaderboardInput>();
 
   const entryFor = (address: string): LeaderboardInput => {
-    const key = address.toLowerCase();
-    const existing = byAddress.get(key);
+    const existing = byAddress.get(address);
     if (existing) return existing;
     const created: LeaderboardInput = {
-      address: key,
-      actorType: args.isAgent?.(key) ? "agent" : "human",
+      address,
+      actorType: args.isAgent?.(address) ? "agent" : "human",
       positions: [],
       selfDealtClaims: 0,
     };
-    byAddress.set(key, created);
+    byAddress.set(address, created);
     return created;
   };
 
@@ -301,13 +300,12 @@ export function positionsFromProjection(args: {
     // register a win whose factors need not cancel the paired loss. Both sides are
     // dropped and the claim is counted, so the behaviour is visible rather than
     // quietly filtered.
-    const creatorKey = claim.creator.toLowerCase();
-    if (claim.challengers.some((c) => c.address.toLowerCase() === creatorKey)) {
-      const entry = entryFor(creatorKey);
+    if (claim.challengers.some((c) => c.address === claim.creator)) {
+      const entry = entryFor(claim.creator);
       entry.selfDealtClaims = (entry.selfDealtClaims ?? 0) + 1;
       // Other challengers on that claim are genuine counterparties and still count.
       for (const challenger of claim.challengers) {
-        if (challenger.address.toLowerCase() === creatorKey) continue;
+        if (challenger.address === claim.creator) continue;
         recordChallenger(claim, challenger);
       }
       continue;

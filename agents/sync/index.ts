@@ -23,21 +23,49 @@ import { getMarketContractId, getStellarRpcUrl } from "../../lib/stellar";
 import { reportingPoll } from "../../lib/ops/heartbeat";
 import { reconcileSettlements } from "../../lib/server/settlement-index";
 import { reconcileVsIndex } from "../../lib/server/vs-index";
+import {
+  BackoffError,
+  DependencyFailureError,
+  StaleStateError,
+  SYNC_BACKOFF,
+  describeBackoffError,
+  withBackoff,
+} from "../../lib/ops/backoff-policies";
 
 // Default 5m: the health probe warns when the index is over 300s stale, so a
 // slower cadence would report a working sync as degraded.
 const POLL_INTERVAL_MS = Number(process.env.SYNC_POLL_INTERVAL_MS ?? "300000");
 
 async function poll(): Promise<void> {
-  const summary = await reconcileVsIndex();
+  let rawSummary: unknown;
+  try {
+    rawSummary = await withBackoff("sync", () => reconcileVsIndex(), { policy: SYNC_BACKOFF });
+  } catch (err) {
+    if (err instanceof BackoffError) {
+      console.warn(`[sync] ${describeBackoffError(err)}`);
+      return;
+    }
+    throw err;
+  }
+  if (!rawSummary || typeof rawSummary !== "object") return;
+  const summary = rawSummary as { synced: number; new: number; stateChanges: number };
   console.log(
     `[sync] ── Reconciled at ${new Date().toISOString()} — ` +
       `${summary.synced} synced, ${summary.new} new, ${summary.stateChanges} state change(s)`,
   );
 
-  // Settlement/fee projection for /revenue. Runs after the claim index so a market
-  // that just resolved is already indexed when its settlement row appears.
-  const fees = await reconcileSettlements();
+  let rawFees: unknown;
+  try {
+    rawFees = await withBackoff("sync", () => reconcileSettlements(), { policy: SYNC_BACKOFF });
+  } catch (err) {
+    if (err instanceof BackoffError) {
+      console.warn(`[sync] ${describeBackoffError(err)}`);
+      return;
+    }
+    throw err;
+  }
+  if (!rawFees || typeof rawFees !== "object") return;
+  const fees = rawFees as { settlements: number; accruals: number; payouts: number; claims: number; fromLedger: number; toLedger: number; truncated?: boolean };
   console.log(
     `[sync]    settlements: ${fees.settlements} market(s), ${fees.accruals} accrual(s), ` +
       `${fees.payouts} pull payout(s), ${fees.claims} fee claim(s) · ` +

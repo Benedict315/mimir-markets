@@ -8,6 +8,7 @@
 
 import { listCouncilPersonas } from "../council/personas";
 import { fetchWithBudget, type PayingWallet } from "../../lib/x402/buyer";
+import { outboundTraceHeaders } from "../../lib/ops/trace-http";
 import { usdcToUnits } from "../../lib/usdc";
 import { isSettlementMode, type SettlementMode } from "../../lib/market-modes";
 import {
@@ -127,9 +128,11 @@ export async function gatherCouncilPreflight(args: {
   for (const persona of personas) {
     const url = `${args.baseUrl.replace(/\/$/, "")}/api/council/preflight?persona=${encodeURIComponent(persona.slug)}`;
     try {
+      // Trace header alongside the payment headers: a preflight panel read and the
+      // creator cycle that paid for it are one trace. Inert to the x402 proof.
       const result = await fetchWithBudget(url, args.payer, capUnits, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...outboundTraceHeaders() },
         body: JSON.stringify(args.candidate),
       });
       if (!result.response.ok) continue;

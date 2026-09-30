@@ -10,7 +10,7 @@ use crate::resolve;
 use crate::storage;
 use crate::types::{
     Challenger, ChallengerPage, Claim, ClaimFeeView, CreateParams, Error, FeePolicy, MarketConfig,
-    PayoutQuote, PendingFeePolicy, PlatformStats, Verdict, WinnerSide,
+    PayoutQuote, PendingFeePolicy, PlatformStats, Verdict, WinnerSide, MAX_BATCH_SIZE,
 };
 
 #[contract]
@@ -175,6 +175,78 @@ impl MimirMarket {
     /// Convenience view returning only the decoded verdict side.
     pub fn get_verdict_side(env: Env, claim_id: u64) -> Result<WinnerSide, Error> {
         resolve::get_verdict(&env, claim_id)?.decode()
+    }
+
+    /// Batch-read up to [`MAX_BATCH_SIZE`] claims in one simulated call.
+    ///
+    /// Returns a `Vec<Option<Claim>>` whose length equals `ids.len()`. Each slot
+    /// holds `Some(claim)` when the id exists, or `None` when it does not. The
+    /// slot positions mirror the input positions exactly, so callers can zip the
+    /// result against their id list without any bookkeeping:
+    ///
+    /// ```text
+    /// ids    = [1, 999, 3]
+    /// result = [Some(claim_1), None, Some(claim_3)]
+    /// ```
+    ///
+    /// # Behavior guarantees
+    ///
+    /// - **Pure read.** No money, no auth, no state mutation. Safe to call from
+    ///   any context, including unsigned simulation.
+    /// - **Position-stable.** The output length always equals the input length.
+    /// - **Non-panicking.** An unknown id yields `None`; it does not abort the
+    ///   call or return an error for that slot.
+    /// - **Duplicate ids.** Each occurrence is resolved independently. Two slots
+    ///   for the same id return the same `Claim` value, both `Some(…)`. This is
+    ///   intentional: the function is idempotent and the on-chain state is the
+    ///   same answer for both positions.
+    /// - **Challenger rosters excluded.** Challenger lists live under a separate
+    ///   storage key (`DataKey::Challengers`). Including them in this call would
+    ///   multiply the ledger-entry footprint by up to `MAX_CHALLENGERS` per id,
+    ///   which makes the Soroban footprint budget infeasible for large batches.
+    ///   Use `get_challengers_page` or `get_challenger_list` separately.
+    /// - **TTL extension.** A *present* entry has its TTL extended on read,
+    ///   identical to `get_claim`. A *missing* id does not touch storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(Error::BatchTooLarge)` when `ids.len() > MAX_BATCH_SIZE`
+    /// (currently 50). The call is entirely rejected; no partial read is
+    /// performed. Split the id list into chunks and call again.
+    ///
+    /// Returns `Err(Error::NotInitialized)` when the contract has not yet been
+    /// initialised (mirrors every other read that needs the contract to be live).
+    ///
+    /// # Accounting and trust
+    ///
+    /// This function reads contract state; it moves no USDC and grants no
+    /// authority. The returned `Claim` values are the same data that
+    /// `get_claim` would return one by one. All money-movement invariants
+    /// (creator stake, challenger stakes, remaining_escrow, fees) are unchanged
+    /// and untouched by this call.
+    ///
+    /// No migration is required: this is a new additive entry point that does
+    /// not alter any existing storage key or function signature.
+    pub fn get_claims_batch(
+        env: Env,
+        ids: Vec<u64>,
+    ) -> Result<Vec<Option<Claim>>, Error> {
+        // Guard: reject over-sized requests before touching any persistent storage.
+        if ids.len() > MAX_BATCH_SIZE {
+            return Err(Error::BatchTooLarge);
+        }
+        // Validate the contract is initialised (mirrors get_claim's implicit
+        // check via storage::usdc — but we call a lightweight test here so the
+        // error message is clear even when ids is empty).
+        if !storage::is_initialized(&env) {
+            return Err(Error::NotInitialized);
+        }
+
+        let mut results: Vec<Option<Claim>> = Vec::new(&env);
+        for id in ids.iter() {
+            results.push_back(storage::get_claim_opt(&env, id));
+        }
+        Ok(results)
     }
 
     pub fn get_claim_market_config(env: Env, claim_id: u64) -> Result<MarketConfig, Error> {

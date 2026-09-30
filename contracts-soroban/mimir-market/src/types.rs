@@ -7,6 +7,19 @@ use soroban_sdk::{contracterror, contracttype, Address, BytesN, String};
 
 pub const MAX_CHALLENGERS: u32 = 100;
 
+/// Maximum number of claim ids accepted by `get_claims_batch` in a single call.
+///
+/// Soroban transactions have a bounded ledger-entry footprint: each claim id in
+/// the batch opens one persistent entry (`DataKey::Claim(id)`). At 50 ids the
+/// simulated footprint stays well inside the limits that the public Soroban RPC
+/// enforces; callers that need more claims should make multiple calls or use the
+/// existing range-read path.
+///
+/// Chosen conservatively: the challenge-roster key (`DataKey::Challengers(id)`)
+/// is NOT read by this function, which deliberately keeps the footprint O(n) in
+/// ids rather than O(n × roster-size).
+pub const MAX_BATCH_SIZE: u32 = 50;
+
 /// Decimals of the escrow token. A Stellar Asset Contract exposes every classic
 /// asset, Circle's USDC included, with exactly 7.
 ///
@@ -44,6 +57,25 @@ pub const FEE_TIMELOCK_SECONDS: u64 = 172_800; // 2 days
 /// Hashing a Soroban `String` requires marshalling it through a fixed-size host
 /// buffer, so a bound is required. 128 bytes is far above any realistic key.
 pub const MAX_INVITE_KEY_BYTES: u32 = 128;
+
+/// Upper bound on the byte length of any single user-supplied metadata string
+/// stored on a claim: the question, both positions, the resolution URL, the
+/// category, the market-config free text, and the oracle's resolution summary.
+///
+/// DEVIATION FROM SOLIDITY: `MimirV2.CreateParams` used Solidity `string`,
+/// which is unbounded. A Soroban persistent entry has a hard size ceiling, and
+/// every stored byte is paid for by the contract and re-read by indexers, so
+/// free text is capped AT THE BOUNDARY instead of being truncated at write
+/// time. 512 bytes is far above any realistic question, URL or settlement rule.
+pub const MAX_METADATA_BYTES: u32 = 512;
+
+/// Upper bound on the SUM of every metadata string stored on one claim.
+///
+/// The per-field cap alone still admits `8 × MAX_METADATA_BYTES` bytes on one
+/// claim; this budget bounds the claim's persistent entry — and each event that
+/// carries its metadata — as a whole. A new claim is refused above it at
+/// creation, before any stake is pulled.
+pub const MAX_CLAIM_METADATA_BYTES: u32 = 2_048;
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
@@ -351,4 +383,17 @@ pub enum Error {
     /// verdict is refused rather than reinterpreted, so resolution fails closed
     /// and the claim is left untouched.
     UnsupportedVerdictVersion = 40,
+    /// A single claim metadata string exceeded `MAX_METADATA_BYTES`. The
+    /// claim is refused rather than silently truncated, so what is stored is
+    /// always exactly what the caller supplied.
+    MetadataTooLong = 41,
+    /// The claim's combined metadata exceeded `MAX_CLAIM_METADATA_BYTES`. No
+    /// stake is pulled and no storage is written for a claim over the budget.
+    ClaimMetadataTooLong = 42,
+    /// The parent claim referenced by `parent_id` does not exist.
+    ParentClaimNotFound = 43,
+    /// The parent claim is not in a state that allows creating a rematch.
+    ParentClaimInvalidState = 44,
+    /// The parent claim has already been used for a rematch (no duplicate rematches).
+    ParentClaimAlreadyRematched = 45,
 }

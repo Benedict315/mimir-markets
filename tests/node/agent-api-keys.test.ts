@@ -37,7 +37,8 @@ test("the stored hash does not reveal the key", () => {
 test("hash comparison rejects a near miss and a length mismatch", () => {
   const hash = hashApiKey(generateApiKey());
   assert.equal(hashesMatch(hash, hash), true);
-  assert.equal(hashesMatch(hash, hash.slice(0, -1) + "0"), false);
+  const diffChar = hash.endsWith("0") ? "1" : "0";
+  assert.equal(hashesMatch(hash, hash.slice(0, -1) + diffChar), false);
   assert.equal(hashesMatch(hash, hash.slice(0, -1)), false, "must not throw on length mismatch");
 });
 

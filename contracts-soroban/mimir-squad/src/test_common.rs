@@ -4,7 +4,7 @@
 
 extern crate std;
 
-use soroban_sdk::testutils::{Address as _, Ledger};
+use soroban_sdk::testutils::{Address as _, IssuerFlags, Ledger, StellarAssetContract};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{Address, Env, String};
 
@@ -24,6 +24,10 @@ pub struct Fixture {
     pub token_id: Address,
     pub oracle: Address,
     pub fee_recipient: Address,
+    /// The asset contract behind [`Self::token_id`], kept so a test can reach
+    /// its issuer: deauthorizing a balance is what a frozen trustline looks
+    /// like to the pool, and it needs the issuer's `AUTH_REVOCABLE` flag.
+    pub sac: StellarAssetContract,
 }
 
 impl Fixture {
@@ -33,6 +37,10 @@ impl Fixture {
         env.ledger().with_mut(|li| li.timestamp = START_TIME);
 
         let sac = env.register_stellar_asset_contract_v2(Address::generate(&env));
+        // Lets a test revoke a balance's authorization, which is how a frozen
+        // trustline is modelled. Unused by the other suites: the flag only
+        // permits revocation, it does not deauthorize anything by itself.
+        sac.issuer().set_flag(IssuerFlags::RevocableFlag);
         let token_id = sac.address();
         let oracle = Address::generate(&env);
         let fee_recipient = Address::generate(&env);
@@ -46,6 +54,7 @@ impl Fixture {
             token_id,
             oracle,
             fee_recipient,
+            sac,
         }
     }
 

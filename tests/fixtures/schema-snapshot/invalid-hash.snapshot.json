@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "sha1",
+  "source": "lib/db.ts",
+  "fingerprint": "e97338643514d7a0d63a43a7cc15f5562c060003907a32af88639633495c9b29",
+  "statementCount": 4,
+  "tables": ["alpha", "beta"],
+  "indexes": ["idx_alpha_id"],
+  "migrations": []
+}

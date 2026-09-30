@@ -10,6 +10,10 @@
 import { normalizeResolutionSource } from "@/lib/constants";
 import { getVSTotalPot, type VSData } from "@/lib/contract";
 import type { VSCacheFreshness } from "@/lib/vs-freshness";
+import {
+  validateResearchCitation,
+  type ResearchCitation,
+} from "@/lib/verdict";
 
 export type SettlementReceiptStatus =
   | "loading"
@@ -38,6 +42,8 @@ export interface SettlementReceiptInput {
    * is live on-chain even if a cached `vs` is present.
    */
   disconnected?: boolean;
+  /** Optional research citations backing the verdict or settlement receipt. */
+  citations?: ResearchCitation[];
 }
 
 export interface SettlementReceiptView {
@@ -61,6 +67,12 @@ export interface SettlementReceiptView {
   /** True when the view is driven by resolved/cancelled chain state. */
   chainBacked: boolean;
   freshnessStatus: VSCacheFreshness["status"] | null;
+  /** Attached research citations backing this verdict and settlement receipt. */
+  citations: ResearchCitation[];
+  /** Authoritative on-chain evidence hash from the contract, if present. */
+  evidenceHash: string | null;
+  /** Authoritative on-chain context hash from the contract, if present. */
+  contextHash: string | null;
 }
 
 const ZEROISH = /^(0x)?0+$/i;
@@ -115,6 +127,9 @@ function emptyView(
     winnerAddress: null,
     chainBacked: false,
     freshnessStatus: null,
+    citations: [],
+    evidenceHash: null,
+    contextHash: null,
     ...partial,
   };
 }
@@ -126,7 +141,13 @@ function emptyView(
 export function buildSettlementReceipt(
   input: SettlementReceiptInput,
 ): SettlementReceiptView {
-  const { vs, freshness = null, loading = false, disconnected = false } = input;
+  const {
+    vs,
+    freshness = null,
+    loading = false,
+    disconnected = false,
+    citations: inputCitations,
+  } = input;
 
   if (loading && !vs) {
     return emptyView("loading", {
@@ -200,6 +221,42 @@ export function buildSettlementReceipt(
 
   const winnerAddress = isBlankAddress(vs.winner) ? null : vs.winner.trim();
 
+  const citations: ResearchCitation[] = [];
+  if (Array.isArray(inputCitations)) {
+    for (const c of inputCitations) {
+      const valid = validateResearchCitation(c);
+      if (valid) citations.push(valid);
+    }
+  }
+
+  const evidenceHash =
+    typeof vs.evidence_hash === "string" && vs.evidence_hash.trim()
+      ? vs.evidence_hash.trim()
+      : null;
+
+  const contextHash =
+    typeof vs.context_hash === "string" && vs.context_hash.trim()
+      ? vs.context_hash.trim()
+      : null;
+
+  // Fallback: if no citations were passed explicitly, derive a canonical one
+  // from authoritative on-chain fields (sourceUrl and evidence_hash / context_hash).
+  if (citations.length === 0 && sourceUrl) {
+    const rawHash = (evidenceHash || contextHash || "").trim().toLowerCase();
+    if (rawHash && /^[0-9a-f]{8,64}$/.test(rawHash)) {
+      citations.push({
+        url: sourceUrl,
+        domain: hostFromSource(sourceUrl),
+        contentHash: rawHash,
+        capturedAt:
+          (typeof vs.created_at === "number" && vs.created_at > 0
+            ? vs.created_at * 1000
+            : 0) || Date.now(),
+        trustTier: "primary",
+      });
+    }
+  }
+
   const view: SettlementReceiptView = {
     status: freshness?.status === "stale" ? "stale" : "ready",
     statusMessageKey: freshness?.status === "stale" ? "stale" : "ready",
@@ -217,6 +274,9 @@ export function buildSettlementReceipt(
     winnerAddress,
     chainBacked: true,
     freshnessStatus: freshness?.status ?? null,
+    citations,
+    evidenceHash,
+    contextHash,
   };
 
   return view;

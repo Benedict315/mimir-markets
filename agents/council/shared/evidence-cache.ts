@@ -43,9 +43,11 @@ export async function getOrFetchEvidence(
       userAgent: "Mimir-Council/1.0",
     });
     const entry: EvidenceCacheEntry = {
-      text:    snap.text,
-      fetcher: snap.fetcher,
-      hash:    sha256Hex(snap.text),
+      text:      snap.text,
+      fetcher:   snap.fetcher,
+      hash:      sha256Hex(snap.text),
+      fetchedAt: snap.fetchedAt,
+      sourceUrl: snap.sourceUrl,
     };
     cache.set(claimId, entry);
     return entry;

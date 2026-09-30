@@ -1,0 +1,30 @@
+{
+  "common": {
+    "back": "Atrás",
+    "connect": "Conectar",
+    "loading": "Cargando...",
+    "obsoleteKey": "This key no longer exists in English"
+  },
+  "home": {
+    "tagline": "Haz una afirmación. Encuentra un retador. Que la evidencia decida.",
+    "heroChallengeSomeone": "DESAFIAR A ALGUIEN"
+  },
+  "dashboard": {
+    "title": "Panel",
+    "copySection": "Copia de Trading",
+    "copyEnable": "Activar espejo",
+    "staleFeatureLabel": "Etiqueta obsoleta"
+  },
+  "wallet": {
+    "noWallet": "Sin billetera conectada",
+    "rejected": "Transacción rechazada"
+  },
+  "create": {
+    "stakeSectionTitle": "Apuesta",
+    "createAndFund": "Crear y financiar {amount} USDC"
+  },
+  "vsDetail": {
+    "eyebrow": "Desafío",
+    "subtitle": "Grupo"
+  }
+}

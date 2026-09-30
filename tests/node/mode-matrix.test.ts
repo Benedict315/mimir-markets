@@ -14,8 +14,21 @@ import {
   type RunSlot,
   type CreatorPolicy,
 } from "../../lib/market-creator/mode-matrix";
+import {
+  checkCategoryCreatorCap,
+  type CategoryCapPolicy,
+} from "../../lib/market-creator/category-caps";
 
 const DEADLINE = 1_780_000_000;
+
+/** A per-category cap policy for the mode decision tests. */
+function categoryCaps(overrides: Partial<CategoryCapPolicy> = {}): CategoryCapPolicy {
+  return {
+    perCategory: {},
+    defaultCap: { maxMarkets: 5, maxExposureUsdc: 100 },
+    ...overrides,
+  };
+}
 
 /** Autonomous publishing on, so dispositions are visible without shadow review. */
 function policy(overrides: Partial<CreatorPolicy> = {}): CreatorPolicy {
@@ -27,6 +40,7 @@ function policy(overrides: Partial<CreatorPolicy> = {}): CreatorPolicy {
     maxPerCategoryPerRun: 2,
     maxPerModePerRun: 3,
     maxPerCreatorPerRun: 3,
+    categoryCaps: categoryCaps(),
     ...overrides,
   };
 }
@@ -104,6 +118,108 @@ test("exposure exactly at the cap is allowed", () => {
   assert.equal(
     decideMode(candidate({ openExposureUsdc: 95, stakeUsdc: 5 }), "pool", policy()).disposition,
     "create",
+  );
+});
+
+// ── Per-category creator caps ─────────────────────────────────────────────────
+
+test("a candidate over its category's open-market cap is skipped", () => {
+  const decision = decideMode(
+    candidate({ categoryOpen: { markets: 5, exposureUsdc: 0 } }),
+    "pool",
+    policy({ categoryCaps: categoryCaps({ defaultCap: { maxMarkets: 5, maxExposureUsdc: 100 } }) }),
+  );
+  assert.equal(decision.disposition, "skip");
+  assert.match(decision.blockedBy ?? "", /category crypto already has 5 open markets \(cap 5\)/);
+});
+
+test("a candidate over its category's notional cap is skipped", () => {
+  const decision = decideMode(
+    candidate({ categoryOpen: { markets: 1, exposureUsdc: 99 }, stakeUsdc: 2 }),
+    "pool",
+    policy({ categoryCaps: categoryCaps({ defaultCap: { maxMarkets: 5, maxExposureUsdc: 100 } }) }),
+  );
+  assert.equal(decision.disposition, "skip");
+  assert.match(decision.blockedBy ?? "", /exposure 101 > cap 100/);
+});
+
+test("a candidate exactly at its category's cap is allowed", () => {
+  assert.equal(
+    decideMode(
+      candidate({ categoryOpen: { markets: 4, exposureUsdc: 95 } }),
+      "pool",
+      policy({ categoryCaps: categoryCaps({ defaultCap: { maxMarkets: 5, maxExposureUsdc: 100 } }) }),
+    ).disposition,
+    "create",
+  );
+});
+
+test("an explicit per-category override is what the decision uses", () => {
+  // Global default is roomy, but crypto is capped at one open market.
+  const decision = decideMode(
+    candidate({ category: "crypto", categoryOpen: { markets: 1, exposureUsdc: 0 } }),
+    "pool",
+    policy({
+      categoryCaps: categoryCaps({
+        perCategory: { crypto: { maxMarkets: 1, maxExposureUsdc: 100 } },
+      }),
+    }),
+  );
+  assert.equal(decision.disposition, "skip");
+  assert.match(decision.blockedBy ?? "", /cap 1/);
+});
+
+test("a malformed category refuses rather than assuming zero inventory", () => {
+  const decision = decideMode(
+    candidate({ category: "   ", categoryOpen: { markets: 0, exposureUsdc: 0 } }),
+    "pool",
+    policy(),
+  );
+  assert.equal(decision.disposition, "skip");
+  assert.match(decision.blockedBy ?? "", /category must be a non-empty string/);
+});
+
+test("a caller that supplies no category context keeps the old behaviour", () => {
+  // Backwards compatible: the per-category gate only fires when the caller has
+  // the inventory to check it with.
+  assert.equal(decideMode(candidate(), "pool", policy()).disposition, "create");
+});
+
+test("regression: decideMode agrees with checkCategoryCreatorCap", () => {
+  const caps = categoryCaps({ perCategory: { crypto: { maxMarkets: 2, maxExposureUsdc: 50 } } });
+  const input = candidate({ category: "crypto", categoryOpen: { markets: 2, exposureUsdc: 10 } });
+  const mode = decideMode(input, "pool", policy({ categoryCaps: caps }));
+  const gate = checkCategoryCreatorCap({
+    category: input.category,
+    policy: caps,
+    openMarkets: input.categoryOpen!.markets,
+    openExposureUsdc: input.categoryOpen!.exposureUsdc,
+    stakeUsdc: input.stakeUsdc,
+  });
+  assert.equal(mode.disposition, "skip");
+  assert.equal(gate.allowed, false);
+  assert.equal(mode.blockedBy, gate.blockedBy);
+});
+
+test("regression: defaultCreatorPolicy wires the per-category caps", () => {
+  const parsed = defaultCreatorPolicy({
+    MARKET_CREATOR_CATEGORY_CAPS: JSON.stringify({ crypto: { maxMarkets: 3, maxExposureUsdc: 40 } }),
+    MARKET_CREATOR_MAX_PER_CATEGORY_MARKETS: "4",
+  });
+  assert.equal(parsed.categoryCaps.defaultCap.maxMarkets, 4);
+  assert.deepEqual(parsed.categoryCaps.perCategory.crypto, {
+    maxMarkets: 3,
+    maxExposureUsdc: 40,
+  });
+});
+
+test("regression: a malformed cap config resolves to a policy that refuses", () => {
+  const parsed = defaultCreatorPolicy({ MARKET_CREATOR_CATEGORY_CAPS: "{not json" });
+  assert.notEqual(parsed.categoryCaps.invalid, undefined);
+  assert.equal(
+    decideMode(candidate({ categoryOpen: { markets: 0, exposureUsdc: 0 } }), "pool", parsed)
+      .disposition,
+    "skip",
   );
 });
 

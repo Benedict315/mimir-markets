@@ -79,11 +79,13 @@ lib/xmtp/
   identity.ts             # the internal-only XMTP signing identity (see 3.1)
   signer.ts               # XMTP Signer over that identity (client-only)
   XmtpProvider.tsx        # React context: Client.create / close / states
+  failure-state.ts        # failure classification + retry policy (no SDK)
   vs-chat-eligibility.ts  # 1v1 accepted rules + peer resolution (no SDK)
   optimistic-send.ts      # remote + pending message merge (Step 7)
   index.ts                # safe barrel: re-exports config only
 components/xmtp/
   VsXmtpPanel.tsx         # DM panel + messages + stream + optimistic send (Steps 5–7)
+  XmtpFailureNotice.tsx   # shared failure + retry notice (accessibility, i18n)
   MessagesHub.tsx         # /messages hub: list claims with active XMTP chat
 ```
 
@@ -153,6 +155,10 @@ Import **`XmtpProvider` and `useXmtp`** from `@/lib/xmtp/XmtpProvider` (not from
 | `initializing` | `Client.create` in progress (may prompt signature to register XMTP inbox). |
 | `ready` | `client` ready for `conversations`, streams, etc. |
 | `error` | Init failed; `retry()` increments a trigger to retry. |
+| `blocked_by_tab` | XMTP is already active in another tab (OPFS lock conflict). |
+| `disabled`/`idle` above | No client is ever created, so no failure is possible. |
+
+Every failing state also sets `failure` (an `XmtpFailure` from `lib/xmtp/failure-state.ts`): the `kind` the UI maps to copy, plus the attempt count, whether a retry is safe, and the raw `technical` string for support. `error` is still exposed for logs.
 
 ## 9. Step 5 — Done ✓
 
@@ -185,9 +191,10 @@ Import **`XmtpProvider` and `useXmtp`** from `@/lib/xmtp/XmtpProvider` (not from
 **Behavior**
 - **Global sync:** `conversations.syncAll([ConsentState.Allowed])` on thread open and manual refresh.
 - **Consent:** if DM exists with `consentState === Unknown`, call `updateConsentState(Allowed)` before `conversation.sync()`.
-- **Errors:** `classifyXmtpThreadError` distinguishes `peer_unreachable`, `rate_limit`, `network`, `unknown`.
+- **Errors:** `classifyXmtpThreadError` distinguishes `peer_unreachable`, `rate_limit`, `network`, `unknown`. That `kind` is kept for the 1v1 demo preview only; the copy and the retry policy come from `classifyXmtpFailureKind`.
 - **Tab focus refresh:** `visibilitychange` (hidden → visible only) with ~4s throttle.
 - **Retry after thread error:** `retryOpenThread` (nonce) restarts thread opening.
+- **Stream loss is non-destructive:** `onError` records `streamFailure` and keeps the loaded messages. The panel says live updates are paused and offers a reconnect. A successful refresh or a live `onValue` clears it. Before this, a dead stream was only `console.warn`ed and the thread silently froze.
 
 ## 11. Messages hub (navbar)
 
@@ -212,7 +219,33 @@ Import **`XmtpProvider` and `useXmtp`** from `@/lib/xmtp/XmtpProvider` (not from
 **Behavior**
 - Message bubble appears instantly; SDK sends with `isOptimistic: true`.
 - After `sendText`, the returned ID is saved; when the thread stream receives the same `DecodedMessage.id`, the pending row is removed (no duplicate).
-- Send failure: pending row removed, error shown below input.
+- Send failure: pending row removed and a `send_failed` notice appears **with the text restored to the draft**, so a failed message can be resent instead of being retyped.
+
+---
+
+## 12.1 Failure and retry states (#90)
+
+| Deliverable | Location |
+|-------------|----------|
+| Classification + retry policy | [`lib/xmtp/failure-state.ts`](../lib/xmtp/failure-state.ts) — no SDK import, so node tests can reach it |
+| Shared notice | [`components/xmtp/XmtpFailureNotice.tsx`](../components/xmtp/XmtpFailureNotice.tsx) |
+| Provider state | [`lib/xmtp/XmtpProvider.tsx`](../lib/xmtp/XmtpProvider.tsx) — `failure` on the context |
+| Thread + stream state | [`hooks/useVsXmtpThread.ts`](../hooks/useVsXmtpThread.ts) — `threadFailure`, `streamFailure` |
+| i18n | `messages/en.json` → namespace **`xmtpVs`** (`failure*`, `retrying`) |
+| Tests | [`tests/node/xmtp-failure-state.test.ts`](../tests/node/xmtp-failure-state.test.ts), [`tests/node/xmtp-failure-ui.test.ts`](../tests/node/xmtp-failure-ui.test.ts) |
+
+**Kinds** — `signature_declined`, `unsupported_wallet`, `invalid_identity`, `installations_limit`, `blocked_by_tab`, `peer_unreachable`, `rate_limit`, `network`, `timeout`, `stream_lost`, `send_failed`, `unknown`.
+
+**Rules that must not regress**
+- **Technical text is never the headline.** The raw SDK/wallet message goes in a `<details>` support disclosure: it can carry the InboxID (a stable identifier) or OPFS paths. `lib/xmtp/XmtpProvider.tsx` still exposes the raw `error` for logs, but the UI maps `failure.kind`.
+- **A declined signature is never retried unattended.** `autoRetryable` is false for it, so the backoff cannot reopen the wallet dialog without the user asking. The user can still press Retry themselves.
+- **Unattended retry is bounded.** At most `XMTP_MAX_AUTO_RETRIES` (2) with a 1.5s / 6s backoff, and never while an attempt is already in flight — a second trigger would cancel `Client.create` mid-flight.
+- **Attempt counting resets across kinds and on success.** A `network` timeout followed by a `rate_limit` is attempt 1 of a new problem, not attempt 3 of the old one.
+- **A retry keeps the notice on screen** with a busy button until it lands, instead of dropping the error into an anonymous spinner.
+- **Unrecoverable failures say so.** `unsupported_wallet` and `invalid_identity` are not retryable, and the notice states that instead of offering a button that cannot work.
+- **`blocked_by_tab` has a real Retry button.** The old copy promised an automatic reconnect, which only happens if the other tab broadcasts its release; a forced tab close never broadcasts.
+
+**No money, permissions or contracts** are touched anywhere in this path. XMTP is message transport; the chain remains the source of truth.
 
 ---
 

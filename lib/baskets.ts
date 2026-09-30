@@ -1,3 +1,5 @@
+import { isValidBps } from "./money";
+
 /**
  * What the creator signs when composing a basket. Readable, because a hardware
  * wallet shows it verbatim.
@@ -134,6 +136,7 @@ export interface BasketExposurePreview {
 
 export function validateBasket(weights: BasketAgentWeight[], policy: BasketPolicy): string[] {
   const errors: string[] = [];
+  if (weights.some((item) => !isValidBps(item.weightBps))) errors.push("weights_must_be_integers");
   if (weights.reduce((sum, item) => sum + item.weightBps, 0) !== 10_000) errors.push("weights_must_total_10000_bps");
   if (new Set(weights.map((item) => item.agentId)).size !== weights.length) errors.push("duplicate_agent");
   if (weights.some((item) => item.weightBps <= 0 || item.weightBps > policy.maxSingleAgentBps)) errors.push("single_agent_exposure");

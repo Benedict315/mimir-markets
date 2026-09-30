@@ -174,7 +174,7 @@ function fromDbSummary(s: PaymentsRevenueSummary): RevenueSummary {
   };
 }
 
-function inMemorySummary(limit: number): RevenueSummary {
+function inMemorySummary(limit: number, offset: number): RevenueSummary {
   const byResource = new Map<string, { calls: number; atomic: bigint }>();
   const bySeller = new Map<string, { calls: number; atomic: bigint }>();
   const payers = new Set<string>();
@@ -213,8 +213,9 @@ function inMemorySummary(limit: number): RevenueSummary {
       .map(([seller, v]) => ({ seller, calls: v.calls, usdc: unitsToUsdc(v.atomic) }))
       .sort((a, b) => b.usdc - a.usdc),
     recent: events
-      .slice(-limit)
+      .slice()
       .reverse()
+      .slice(offset, offset + limit)
       .map((e) => ({
         resource: e.resource,
         network: e.network,
@@ -230,7 +231,7 @@ function inMemorySummary(limit: number): RevenueSummary {
 }
 
 /** Durable summary from Neon; falls back to the in-memory buffer on any error. */
-export async function getRevenueSummary(limit = 25): Promise<RevenueSummary> {
+export async function getRevenueSummary(limit = 25, offset = 0): Promise<RevenueSummary> {
   const withBaseline = (s: RevenueSummary): RevenueSummary => {
     const calls = baselineCalls();
     const usdc = baselineUsdc();
@@ -245,7 +246,7 @@ export async function getRevenueSummary(limit = 25): Promise<RevenueSummary> {
   };
   try {
     const [payments, market] = await Promise.all([
-      getPaymentsRevenueSummary(limit),
+      getPaymentsRevenueSummary(limit, offset),
       getMarketRevenueSummary(),
     ]);
     return {
@@ -261,6 +262,6 @@ export async function getRevenueSummary(limit = 25): Promise<RevenueSummary> {
       },
     };
   } catch {
-    return withBaseline(inMemorySummary(limit));
+    return withBaseline(inMemorySummary(limit, offset));
   }
 }

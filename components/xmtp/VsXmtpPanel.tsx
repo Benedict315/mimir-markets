@@ -16,21 +16,15 @@ import {
 import { shortenAddress } from "@/lib/constants";
 import { Button, Input } from "@/components/ui";
 import VsXmtpChatPreviewShell from "@/components/xmtp/VsXmtpChatPreviewShell";
+import XmtpFailureNotice from "@/components/xmtp/XmtpFailureNotice";
 import {
   isXmtpInstallationsLimitError,
   XMTP_INBOX_TOOLS_URL,
 } from "@/lib/xmtp/installation-limit-error";
-import {
-  ExternalLink,
-  Lock,
-  MessageCircle,
-  MonitorSmartphone,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { ExternalLink, Lock, MessageCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useVsXmtpThread } from "@/hooks/useVsXmtpThread";
 import { getDecodedMessageText } from "@/lib/xmtp/chat-thread";
-import {
+import { nextXmtpFailure, type XmtpFailure } from "@/lib/xmtp/failure-state";import {
   decodedMessageMatchesPending,
   mergeThreadDisplayRows,
   normalizeXmtpMessageId,
@@ -85,12 +79,13 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
   const {
     client,
     status: xmtpStatus,
-    error: xmtpError,
+    failure: xmtpFailure,
     featureEnabled,
     retry,
   } = useXmtp();
 
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendFailure, setSendFailure] = useState<XmtpFailure | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [pendingSends, setPendingSends] = useState<OptimisticPendingMessage[]>(
     []
@@ -98,6 +93,7 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
   const [hiddenMyMessageIds, setHiddenMyMessageIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [isThreadRetrying, setIsThreadRetrying] = useState(false);
 
   const peerAddress = useMemo(
     () => getVsXmtpPeerAddress(vs, address),
@@ -106,7 +102,7 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
 
   useEffect(() => {
     setPendingSends([]);
-    setSendError(null);
+    setSendFailure(null);
     setDraft("");
   }, [peerAddress]);
 
@@ -155,6 +151,8 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
     dm,
     messages,
     threadError,
+    threadFailure,
+    streamFailure,
     isRefreshing,
     refreshThread,
     retryOpenThread,
@@ -166,9 +164,28 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
   });
 
   const isXmtpBoot = xmtpStatus === "initializing";
-  const isBlockedByTab = xmtpStatus === "blocked_by_tab";
-  const isXmtpProviderError =
-    xmtpStatus === "error" || (xmtpStatus === "ready" && !client);
+  /** El mismo estado, leído por el aviso como "hay un intento en vuelo". */
+  const isXmtpRetrying = isXmtpBoot;
+
+  /**
+   * Fallo de arranque. `ready` sin `client` es un invariante roto (el provider
+   * nunca publica ese par), así que se clasifica en vez de quedar mudo: el panel
+   * tiene que poder reintentar aunque el estado venga inconsistente.
+   */
+  const xmtpProviderFailure = useMemo<XmtpFailure | null>(() => {
+    if (xmtpFailure) return xmtpFailure;
+    if (xmtpStatus === "ready" && !client) {
+      return nextXmtpFailure(
+        null,
+        "unknown",
+        "XMTP_READY_WITHOUT_CLIENT"
+      );
+    }
+    if (xmtpStatus === "blocked_by_tab") {
+      return nextXmtpFailure(null, "blocked_by_tab", "XMTP_TAB_LOCK_HELD");
+    }
+    return null;
+  }, [xmtpFailure, xmtpStatus, client]);
 
   const innerLoading =
     threadEligible &&
@@ -182,25 +199,17 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
     Boolean(threadError) &&
     shouldShowXmtpPeerUnreachableChatPreview(vs, threadError?.kind);
 
-  const xmtpProviderErrorMessage = xmtpError?.message ?? "";
   const showInboxToolsForInstallLimit = useMemo(
-    () => isXmtpInstallationsLimitError(xmtpProviderErrorMessage),
-    [xmtpProviderErrorMessage]
+    () => xmtpProviderFailure?.kind === "installations_limit",
+    [xmtpProviderFailure]
   );
 
-  const threadErrorLabel = useMemo(() => {
-    if (!threadError) return null;
-    switch (threadError.kind) {
-      case "peer_unreachable":
-        return t("peerUnreachable");
-      case "rate_limit":
-        return t("rateLimited");
-      case "network":
-        return t("networkError");
-      default:
-        return threadError.technical || t("errorGeneric");
+  /** Reset thread retrying state when thread phase leaves loading/idle. */
+  useEffect(() => {
+    if (threadPhase === "ready" || threadPhase === "error") {
+      setIsThreadRetrying(false);
     }
-  }, [threadError, t]);
+  }, [threadPhase]);
 
   /** Cuando el stream incorpora el mensaje real, quita la burbuja optimista. */
   useEffect(() => {
@@ -250,13 +259,14 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
     const text = draft.trim();
     if (!text) return;
     clearThreadError();
-    setSendError(null);
+    setSendFailure(null);
     const clientTempId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `opt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const sentAt = new Date();
     setDraft("");
+    setIsSending(true);
     setPendingSends((prev) => [
       ...prev,
       { clientTempId, text, sentAt, status: "sending" },
@@ -276,7 +286,15 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
       setPendingSends((prev) =>
         prev.filter((p) => p.clientTempId !== clientTempId)
       );
-      setSendError(e instanceof Error ? e.message : String(e));
+      const technical = e instanceof Error ? e.message : String(e);
+      // El texto vuelve al draft solo si el usuario no ha escrito otra cosa: un
+      // envío fallido nunca debe perder lo que la persona escribió.
+      setDraft((prev) => (prev.trim() ? prev : text));
+      setSendFailure((prev) =>
+        nextXmtpFailure(prev, "send_failed", technical)
+      );
+    } finally {
+      setIsSending(false);
     }
   }, [dm, draft, clearThreadError]);
 
@@ -303,7 +321,7 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
       return next;
     });
     setPendingSends([]);
-    setSendError(null);
+    setSendFailure(null);
   }, [
     client?.inboxId,
     peerAddress,
@@ -497,32 +515,19 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
         <p className="text-xs text-pv-muted animate-pulse">{t("initializingXmtp")}</p>
       )}
 
-      {isBlockedByTab && (
-        <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2 text-xs text-amber-300 mb-3">
-          <div className="flex items-center gap-2 mb-1">
-            <MonitorSmartphone size={14} aria-hidden />
-            <span className="font-semibold">{t("blockedByTabTitle")}</span>
-          </div>
-          <p className="text-amber-300/80">{t("blockedByTabDesc")}</p>
-        </div>
-      )}
-
-      {isXmtpProviderError && (
-        <div
-          role="alert"
-          className="mb-3 overflow-hidden rounded-xl border border-pv-danger/30 bg-pv-danger/[0.05] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
-        >
-          <div className="border-b border-pv-ink/[0.06] bg-pv-bg/25 px-3.5 py-2.5 sm:px-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pv-danger/90">
-              {t("providerErrorEyebrow")}
-            </p>
-          </div>
-          <div className="px-3.5 py-3 sm:px-4 sm:py-3.5">
-            <p className="text-xs leading-relaxed text-pv-text/90 [overflow-wrap:anywhere]">
-              {xmtpProviderErrorMessage || t("errorGeneric")}
-            </p>
-            {showInboxToolsForInstallLimit ? (
-              <div className="mt-4 rounded-lg border border-pv-ink/[0.1] bg-pv-bg/40 px-3 py-2.5 sm:px-3.5 sm:py-3">
+      {xmtpProviderFailure && (
+        <XmtpFailureNotice
+          failure={xmtpProviderFailure}
+          tone={xmtpProviderFailure.kind === "blocked_by_tab" ? "warning" : "danger"}
+          isRetrying={isXmtpRetrying}
+          eyebrow={t("providerErrorEyebrow")}
+          onRetry={() => {
+            retry();
+            clearThreadError();
+          }}
+          action={
+            showInboxToolsForInstallLimit ? (
+              <div className="rounded-lg border border-pv-ink/[0.1] bg-pv-bg/40 px-3 py-2.5 sm:px-3.5 sm:py-3">
                 <div className="flex flex-row items-center justify-between gap-3">
                   <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-pv-muted">
                     {t("installationsLimitGuide")}
@@ -538,22 +543,12 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
                   </a>
                 </div>
               </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                retry();
-                clearThreadError();
-              }}
-              className="mt-3 text-left text-xs font-semibold text-pv-emerald hover:underline"
-            >
-              {t("retry")}
-            </button>
-          </div>
-        </div>
+            ) : null
+          }
+        />
       )}
 
-      {!isXmtpProviderError && innerLoading && (
+      {!xmtpProviderFailure && innerLoading && (
         <div
           className="space-y-2.5"
           role="status"
@@ -571,32 +566,23 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
         </div>
       )}
 
-      {!isXmtpProviderError &&
+      {!xmtpProviderFailure &&
         innerThreadError &&
-        threadErrorLabel &&
+        threadFailure &&
         showPeerUnreachablePreview && (
-          <div className="mb-3 space-y-3">
-            <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2.5 sm:px-3.5 sm:py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200/85">
-                {t("chatPreviewEyebrow")}
-              </p>
-              <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-pv-muted">
-                  {t("chatPreviewBanner")}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    retryOpenThread();
-                    setSendError(null);
-                    setPendingSends([]);
-                  }}
-                  className="shrink-0 text-left text-xs font-semibold text-pv-emerald hover:underline sm:text-right"
-                >
-                  {t("retry")}
-                </button>
-              </div>
-            </div>
+          <div className="space-y-3">
+            <XmtpFailureNotice
+              failure={threadFailure}
+              tone="warning"
+              eyebrow={t("chatPreviewEyebrow")}
+              isRetrying={isThreadRetrying}
+              onRetry={() => {
+                setIsThreadRetrying(true);
+                retryOpenThread();
+                setSendFailure(null);
+                setPendingSends([]);
+              }}
+            />
             <VsXmtpChatPreviewShell
               peerShort={shortenAddress(peerAddress)}
               viewerShort={shortenAddress(address)}
@@ -604,27 +590,39 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
           </div>
         )}
 
-      {!isXmtpProviderError &&
+      {!xmtpProviderFailure &&
         innerThreadError &&
-        threadErrorLabel &&
+        threadFailure &&
         !showPeerUnreachablePreview && (
-          <div className="rounded-lg border border-pv-danger/25 bg-pv-danger/[0.06] px-3 py-2 text-xs text-pv-danger mb-3">
-            <p>{threadErrorLabel}</p>
-            <button
-              type="button"
-              onClick={() => {
-                retryOpenThread();
-                setSendError(null);
-                setPendingSends([]);
-              }}
-              className="mt-2 text-pv-emerald font-semibold hover:underline"
-            >
-              {t("retry")}
-            </button>
-          </div>
+          <XmtpFailureNotice
+            failure={threadFailure}
+            isRetrying={isThreadRetrying}
+            onRetry={() => {
+              setIsThreadRetrying(true);
+              retryOpenThread();
+              setSendFailure(null);
+              setPendingSends([]);
+            }}
+          />
         )}
 
-      {!isXmtpProviderError && innerReady && dm && client && (
+      {!xmtpProviderFailure && innerReady && dm && client && streamFailure && (
+        <XmtpFailureNotice
+          failure={streamFailure}
+          tone="warning"
+          isRetrying={isThreadRetrying}
+          eyebrow={t("streamLostEyebrow")}
+          onRetry={() => {
+            setIsThreadRetrying(true);
+            retryOpenThread();
+            setPendingSends([]);
+          }}
+        >
+          {t("streamLostStaleHint")}
+        </XmtpFailureNotice>
+      )}
+
+      {!xmtpProviderFailure && innerReady && dm && client && (
         <>
           <div className="overflow-hidden rounded-lg border border-pv-ink/[0.08] bg-pv-bg/40">
             <div className="flex items-center justify-between gap-3 border-b border-pv-ink/[0.08] px-3 py-2.5 sm:px-3.5">
@@ -739,10 +737,17 @@ export default function VsXmtpPanel({ vs, embedded = false }: VsXmtpPanelProps) 
             </div>
 
             <div className="bg-pv-bg/[0.08] px-3 pb-2.5 pt-1.5 sm:px-3.5 sm:pb-3 sm:pt-2">
-              {sendError ? (
-                <p className="mb-2 text-[11px] text-pv-danger" role="alert">
-                  {sendError}
-                </p>
+              {sendFailure ? (
+                <div className="mb-2">
+                  <XmtpFailureNotice
+                    failure={sendFailure}
+                    isRetrying={isSending}
+                    eyebrow={t("sendFailedEyebrow")}
+                    onRetry={() => void handleSend()}
+                  >
+                    {t("sendFailedDraftKept")}
+                  </XmtpFailureNotice>
+                </div>
               ) : null}
               <div className="flex w-full min-w-0 items-center gap-2 sm:gap-2.5">
                 <div className="min-w-0 flex-1 [&_input]:w-full">

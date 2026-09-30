@@ -16,7 +16,7 @@
 import { isVerdict, type Verdict } from "../verdict";
 
 /** Claim lifecycle states the quorum gate cares about. */
-export type ClaimSettleState = "open" | "active" | "resolved" | "cancelled";
+export type ClaimSettleState = "open" | "active" | "resolved" | "cancelled" | "paused";
 
 /**
  * What happened to one persona vote attempt before it may enter the ballot.
@@ -36,6 +36,7 @@ export type VoteDisposition =
   | "stale"
   | "duplicated"
   | "cancelled"
+  | "paused"
   | "dependency_failure";
 
 export type FallbackAction =
@@ -47,6 +48,8 @@ export type FallbackAction =
   | "abort_cancelled"
   /** Claim already resolved — a new council pass would be stale. */
   | "abort_resolved"
+  /** Claim is paused — council must not settle it. */
+  | "abort_paused"
   /** Quorum config is unusable after normalization refusal. */
   | "abort_invalid_config";
 
@@ -71,6 +74,8 @@ export interface VoteAttemptInput {
   /** Claim id the oracle is currently settling. */
   expectedClaimId: number;
   claimState: ClaimSettleState;
+  /** True when this persona is currently paused and must not vote. */
+  personaPaused?: boolean;
   /**
    * Transport outcome before JSON validation.
    * - `ok` — HTTP 2xx with a body to inspect
@@ -115,6 +120,7 @@ const EMPTY_DISPOSITIONS = (): Record<VoteDisposition, number> => ({
   stale: 0,
   duplicated: 0,
   cancelled: 0,
+  paused: 0,
   dependency_failure: 0,
 });
 
@@ -163,6 +169,15 @@ export function classifyVoteAttempt(input: VoteAttemptInput): ClassifiedVote {
       slug: "",
       disposition: "invalid",
       reason: "missing persona slug",
+      decisive: false,
+    };
+  }
+
+  if (input.personaPaused) {
+    return {
+      slug,
+      disposition: "paused",
+      reason: "persona is paused",
       decisive: false,
     };
   }
@@ -357,6 +372,19 @@ export function evaluateQuorum(
     };
   }
 
+  if (claimState === "paused") {
+    return {
+      action: "abort_paused",
+      quorum: normalizeQuorum(quorumRaw),
+      decisiveCount: 0,
+      acceptedCount: 0,
+      dispositions: countDispositions(attempts),
+      reason: "claim is paused — council settlement aborted",
+      acceptedSlugs: [],
+      ballot: [],
+    };
+  }
+
   if (opts?.strictConfig && isInvalidQuorumConfig(quorumRaw)) {
     return {
       action: "abort_invalid_config",
@@ -391,11 +419,14 @@ export function evaluateQuorum(
   }
 
   const dep = dispositions.dependency_failure;
+  const paused = dispositions.paused;
   const reasonParts = [
     `below quorum: ${decisiveCount} decisive < ${quorum}`,
     dispositions.invalid ? `${dispositions.invalid} invalid` : null,
     dispositions.stale ? `${dispositions.stale} stale` : null,
     dispositions.duplicated ? `${dispositions.duplicated} duplicated` : null,
+    dispositions.cancelled ? `${dispositions.cancelled} cancelled` : null,
+    paused ? `${paused} paused` : null,
     dep ? `${dep} dependency_failure` : null,
   ].filter(Boolean);
 

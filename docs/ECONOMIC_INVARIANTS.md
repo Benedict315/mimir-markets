@@ -50,6 +50,35 @@ Source: `contracts-soroban/mimir-market/src/fees.rs`, mirrored off-chain in
   behaviour: the contract asserts escrow moved by exactly the requested amount and
   errors with `UnsupportedToken` otherwise.
 
+### Principal-safe payout preview
+
+The stake form shows what the contract will pay, not the pre-fee pool formula.
+`previewChallengerPayoutSafe` (`lib/payout.ts`) takes the gross from
+`challengerPayoutUnits`, splits it with the claim's own `getClaimFees` snapshot in
+`principalSafePayout`, and returns `netPayout`. Tests:
+`tests/node/payout-preview.test.ts`.
+
+- Fees are charged on profit only, so `netPayout >= principal` in every market.
+  The clamp inside `principalSafePayout` is the backstop for a snapshot that was
+  never valid; `isPrincipalSafe` is the shared assertion the UI and tests use.
+- A snapshot the contract could not have written (negative, non-integer, or above
+  `MAX_TOTAL_FEE_BPS` when the two legs are summed) is classified `invalid` and NOT
+  applied. Any unread snapshot (`loading` / `unavailable` / `invalid`) previews the
+  gross and the UI labels it — an unknown fee can only make the real payout lower,
+  so the gross is a ceiling, never a promise.
+- The preview is address-independent: `fees.rs::quote_fees` charges an agent-owner
+  leg whenever the claim has a recipient and does not waive it by earner (that
+  waiver belongs to the off-chain `splitAttributedFees`, not to settlement). A
+  disconnected viewer therefore sees the same net as the challenger; connection
+  only gates the stake action.
+
+Rollout: no contract change and no data migration. The snapshot is immutable per
+claim, so the read cannot go stale while a page is open — it happens once per
+claim id, and a failed read degrades to the labelled gross. Analytics keeps its
+established gross meaning for `total_return_multiple` and gains a `fee_adjusted`
+marker, so the fee-adjusted and fee-unknown cases stay distinguishable without
+renaming an event or an envelope field.
+
 ### Settlement conservation
 
 `conservation_holds_across_every_verdict` asserts, for every `WinnerSide`, that
@@ -62,6 +91,18 @@ payouts + fees + dust equals escrow inflow. Alongside it:
 - `fixed_odds_with_several_challengers_conserves_exactly`
 - `draw_refunds_everyone_in_full_with_no_fee` and the `Unresolvable` equivalent
 - `a_quote_matches_what_the_pull_actually_pays`
+
+### Settlement dust is deterministic and isolated
+
+The pool-share formula truncates, so a few atomic units can be left over. The
+remainder is a function of the claim's pools alone, so it does not depend on the
+order challengers pull in, and the final puller receives their formula share plus
+exactly that dust — the escrow empties to zero instead of stranding units.
+`src/test_dust_isolation.rs` pins it: the final challenger's gross is
+`formula + dust`, the dust amount is identical under either pull order, an exactly
+dividing pool leaves no dust, `paid + fees + remaining_escrow` equals the inflow
+after every pull, a quote equals the payout it precedes, and an abandoned final
+share keeps the dust in escrow rather than overpaying.
 
 ### Fixed-odds liquidity is a claim-level accounting invariant
 
@@ -150,6 +191,14 @@ Source: `contracts-soroban/mimir-squad/src/pool.rs`. Tests: `src/test_lifecycle.
 - A cancelled market refunds every principal in full, including both sides of a
   double-sided depositor. A break-even winner pays no fee.
 - `preview_matches_the_amount_actually_paid` ties the quoting view to the pull.
+  `claim` and `preview_claim` share one `winner_gross`, so the preview cannot
+  round the final winner's dust differently from the payout; a position that has
+  already pulled previews as zero, matching `claim`'s no-op, rather than promising
+  a second payout.
+- `src/test_dust_isolation.rs` isolates the same dust property for the squad pool:
+  the final winner's gross is `formula + dust`, the dust is identical under either
+  claim order, an exactly dividing pool leaves none, conservation holds after every
+  claim, and preview equals payout.
 
 ## Virtual baskets
 

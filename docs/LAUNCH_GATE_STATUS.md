@@ -13,6 +13,7 @@ external evidence below.
 | BYOA funded actions | Signed registry, owner revoke/rotation, atomic budgets, dry-run/simulation and durable audit records. | Off by default until deployment/review evidence is attached. |
 | Copy trading | Owner-signed policy, exact on-chain USDC SAC allowance, pause/revoke, depth/cycle guard, atomic rolling caps and realized-loss ceiling. | Off by default until deployment/review evidence is attached. |
 | Funded baskets safety boundary | `agent_baskets` is off by default and the accepted ADR forbids deposits before audit/legal/eligibility approval. | No real funds accepted. |
+| Public operational status surface | `/api/health/status` unauthenticated telemetry, fail-closed DB & contract checks, withdrawal non-pausability invariant, zero-secret redaction, deterministic clean checkout verification. | Enabled across web routes; `npm run verify:status` is the check. |
 
 ## External evidence still required
 

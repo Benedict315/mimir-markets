@@ -8,8 +8,8 @@ use soroban_sdk::Address;
 
 use crate::test_common::{Fixture, DEFAULT_DURATION, USDC};
 use crate::types::{
-    Error, MAX_DURATION, MAX_FEE_BPS, MAX_PARTICIPANTS_PER_SIDE, MIN_DURATION, RESULT_CANCELLED,
-    SIDE_A, SIDE_B,
+    Error, MAX_DURATION, MAX_FEE_BPS, MAX_PARTICIPANTS_PER_SIDE, MAX_QUESTION_BYTES, MIN_DURATION,
+    RESULT_CANCELLED, SIDE_A, SIDE_B,
 };
 
 // ── Creation ─────────────────────────────────────────────────────────────────
@@ -55,6 +55,27 @@ fn an_empty_question_is_rejected() {
         .unwrap_err()
         .unwrap();
     assert_eq!(err, Error::EmptyQuestion);
+}
+
+#[test]
+fn the_question_is_bounded_rather_than_truncated() {
+    let f = Fixture::new();
+    let captain = f.user(0);
+    let deadline = f.now() + DEFAULT_DURATION;
+
+    // Exactly at the cap is accepted.
+    let at_cap = f.str(&"q".repeat(MAX_QUESTION_BYTES as usize));
+    f.client().create_market(&captain, &at_cap, &deadline, &0);
+
+    // One byte over is refused with a typed error and no new market.
+    let over = f.str(&"q".repeat(MAX_QUESTION_BYTES as usize + 1));
+    let err = f
+        .client()
+        .try_create_market(&captain, &over, &deadline, &0)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, Error::QuestionTooLong);
+    assert_eq!(f.client().get_market_count(), 1);
 }
 
 #[test]

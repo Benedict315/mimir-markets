@@ -1,0 +1,28 @@
+{
+  "common": {
+    "back": "Atrás",
+    "connect": "Conectar",
+    "loading": "Loading..."
+  },
+  "home": {
+    "tagline": "Make a claim. Find a challenger. Let the evidence decide.",
+    "heroChallengeSomeone": "DESAFIAR A ALGUIEN"
+  },
+  "dashboard": {
+    "title": "Panel",
+    "copySection": "Copia de Trading",
+    "copyEnable": "Activar espejo"
+  },
+  "wallet": {
+    "noWallet": "Sin billetera conectada",
+    "rejected": "Transacción rechazada"
+  },
+  "create": {
+    "stakeSectionTitle": "Apuesta",
+    "createAndFund": "Crear y financiar {amount} USDC"
+  },
+  "vsDetail": {
+    "eyebrow": "Desafío",
+    "subtitle": "Grupo"
+  }
+}

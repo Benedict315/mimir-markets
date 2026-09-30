@@ -59,8 +59,12 @@ pub fn resolve_claim_versioned(
     storage::oracle(env)?.require_auth();
 
     let mut claim = storage::get_claim(env, claim_id)?;
+    // Decode first: an unknown version must never be written, and `None` is not
+    // a settled verdict. Both refusals leave the claim untouched.
+    let winner_side = verdict.decode()?;
     if claim.state == ClaimState::Resolved {
-        if claim.winner_side == winner_side
+        // Idempotent replay: same decoded verdict and inputs is a no-op.
+        if verdict.decode().ok() == Some(claim.winner_side)
             && claim.resolution_summary == summary
             && claim.confidence == confidence
             && claim.evidence_hash == Some(evidence_hash.clone())
@@ -74,12 +78,28 @@ pub fn resolve_claim_versioned(
     if env.ledger().timestamp() < claim.deadline {
         return Err(Error::NotYetExpired);
     }
+    
+    // Emit deadline reached event for active claims entering settlement window
+    events::DeadlineReached {
+        id: claim_id,
+        deadline: claim.deadline,
+        challenger_count: claim.challenger_count,
+        total_staked: claim.creator_stake
+            .checked_add(claim.total_challenger_stake)
+            .ok_or(Error::Overflow)?,
+    }
+    .publish(env);
+    
     // Decode first: an unknown version must never be written, and `None` is not
     // a settled verdict. Both refusals leave the claim untouched.
     let winner_side = verdict.decode()?;
     if confidence > 100 {
         return Err(Error::InvalidConfidence);
     }
+    // Bound the summary before any state is written. A claim created under the
+    // metadata budget must stay under it after resolution; an over-long summary
+    // is refused with the claim still Active and the escrow untouched.
+    util::validate_resolution_summary(&claim, &summary)?;
 
     claim.state = ClaimState::Resolved;
     claim.winner_side = winner_side;
@@ -152,6 +172,15 @@ pub fn resolve_claim_versioned(
     }
 
     let dust = inflow.checked_sub(committed).ok_or(Error::PayoutExceedsEscrow)?;
+    
+    events::ClaimStateTransitioned {
+        id: claim_id,
+        from_state: ClaimState::Active as u32,
+        to_state: ClaimState::Resolved as u32,
+        timestamp: env.ledger().timestamp(),
+    }
+    .publish(env);
+    
     storage::set_claim(env, claim_id, &claim);
     // Persist the verdict with its explicit version tag. `claim.winner_side`
     // remains the compatibility mirror for callers that read the claim struct.
@@ -252,6 +281,12 @@ fn gross_for(
 
 /// Settle one challenger's position. Callable once per challenger once the claim
 /// is resolved, and O(1) in the number of challengers.
+///
+/// Duplicate prevention: each roster entry carries a `claimed` marker, and a
+/// second pull by the same challenger is rejected with
+/// [`Error::AlreadyClaimedPayout`]. The guard runs before any state is read for
+/// payout, so a duplicate can never draw the escrow down twice or advance the
+/// last-claimant branch.
 pub fn claim_challenger_payout(
     env: &Env,
     challenger: Address,
@@ -272,7 +307,12 @@ pub fn claim_challenger_payout(
     let (index, mut entry) =
         find_challenger(&roster, &challenger).ok_or(Error::NotAChallenger)?;
     if entry.claimed {
-        return Ok(0);
+        // Duplicate payout claim: this challenger has already pulled their
+        // settlement. Fail closed with the explicit error instead of a silent
+        // `Ok(0)`, so a retried or replayed pull is distinguishable from a
+        // genuinely zero payout and cannot be mistaken for a fresh settlement.
+        // No state is written and no funds move either way.
+        return Err(Error::AlreadyClaimedPayout);
     }
 
     let claim_number = claim

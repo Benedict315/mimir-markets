@@ -10,7 +10,10 @@ extern crate std;
 
 use crate::storage::DataKey;
 use crate::test_common::{Fixture, USDC};
-use crate::types::{ClaimState, Error, Verdict, WinnerSide, VERDICT_VERSION_V1};
+use crate::types::{
+    ClaimState, Error, Verdict, WinnerSide, MAX_CLAIM_METADATA_BYTES, MAX_METADATA_BYTES,
+    VERDICT_VERSION_V1,
+};
 
 /// A funded, expired, challenged claim: the smallest market that can resolve.
 fn active_claim(f: &Fixture) -> u64 {
@@ -301,4 +304,121 @@ fn versioned_resolution_requires_the_oracle_signature() {
         )
         .is_err());
     assert_eq!(f.client().get_claim(&id).state, ClaimState::Active);
+}
+
+// ── Resolution summary metadata bounds ───────────────────────────────────────
+
+/// A summary exactly at the per-field cap settles normally.
+#[test]
+fn a_resolution_summary_at_the_field_bound_is_accepted() {
+    let f = Fixture::new(0, 0);
+    let id = active_claim(&f);
+    let summary = f.str(&"s".repeat(MAX_METADATA_BYTES as usize));
+
+    f.client().resolve_claim_versioned(
+        &id,
+        &Verdict::current(WinnerSide::Creator),
+        &summary,
+        &90,
+        &f.zero_hash(),
+    );
+
+    assert_eq!(f.client().get_claim(&id).state, ClaimState::Resolved);
+    assert_eq!(
+        f.client().get_claim(&id).resolution_summary.len(),
+        MAX_METADATA_BYTES
+    );
+}
+
+/// An over-long summary is refused before settlement: the claim stays active
+/// and the escrow is untouched.
+#[test]
+fn an_over_long_resolution_summary_is_refused() {
+    let f = Fixture::new(0, 0);
+    let id = active_claim(&f);
+    let summary = f.str(&"s".repeat(MAX_METADATA_BYTES as usize + 1));
+
+    let err = f
+        .client()
+        .try_resolve_claim_versioned(
+            &id,
+            &Verdict::current(WinnerSide::Creator),
+            &summary,
+            &90,
+            &f.zero_hash(),
+        )
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, Error::MetadataTooLong);
+    assert_eq!(f.client().get_claim(&id).state, ClaimState::Active);
+    assert_eq!(f.escrow_balance(), 20 * USDC);
+    assert_eq!(f.client().get_platform_stats().resolved, 0);
+}
+
+/// A claim created at its metadata budget cannot absorb a summary that would
+/// push it over, even though the summary is itself within the per-field cap.
+#[test]
+fn a_summary_that_breaks_the_claim_budget_is_refused() {
+    let f = Fixture::new(0, 0);
+    let creator = f.user(100 * USDC);
+    let challenger = f.user(100 * USDC);
+    let mut params = f.params(10 * USDC);
+    params.question = f.str(&"q".repeat(MAX_METADATA_BYTES as usize));
+    params.creator_position = f.str(&"a".repeat(MAX_METADATA_BYTES as usize));
+    params.counter_position = f.str(&"b".repeat(MAX_METADATA_BYTES as usize));
+    params.resolution_url = f.str(&"u".repeat(503));
+    params.category = f.str("c");
+    params.market_type = f.str("binary");
+    params.handicap_line = f.str("h");
+    params.settlement_rule = f.str("s");
+    let id = f.client().create_claim(&creator, &params);
+    f.client().challenge_claim(&challenger, &id, &(10 * USDC), &None);
+    f.advance_by(3_600);
+
+    let err = f
+        .client()
+        .try_resolve_claim_versioned(
+            &id,
+            &Verdict::current(WinnerSide::Creator),
+            &f.str("one"),
+            &90,
+            &f.zero_hash(),
+        )
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, Error::ClaimMetadataTooLong);
+    assert_eq!(f.client().get_claim(&id).state, ClaimState::Active);
+    assert_eq!(f.escrow_balance(), 20 * USDC);
+}
+
+/// Migration compatibility: a funded claim whose metadata predates the bound
+/// (already over the aggregate budget) can still resolve, as long as the
+/// summary itself is within the per-field cap.
+#[test]
+fn a_legacy_over_budget_claim_can_still_resolve() {
+    let f = Fixture::new(0, 0);
+    let id = active_claim(&f);
+
+    // Simulate a pre-bound claim: overwrite the stored question with legacy
+    // free text larger than the whole aggregate budget.
+    let mut stored = f.client().get_claim(&id);
+    stored.question = f.str(&"q".repeat(MAX_CLAIM_METADATA_BYTES as usize + 1));
+    f.env.as_contract(&f.contract_id, || {
+        f.env
+            .storage()
+            .persistent()
+            .set(&DataKey::Claim(id), &stored);
+    });
+
+    let summary = f.str(&"s".repeat(MAX_METADATA_BYTES as usize));
+    f.client().resolve_claim_versioned(
+        &id,
+        &Verdict::current(WinnerSide::Creator),
+        &summary,
+        &90,
+        &f.zero_hash(),
+    );
+
+    assert_eq!(f.client().get_claim(&id).state, ClaimState::Resolved);
+    assert_eq!(f.escrow_balance(), 0);
 }

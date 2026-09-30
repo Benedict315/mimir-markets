@@ -19,11 +19,15 @@ export type PersonaArchetype =
   | "specialist"
   | "micro";
 
+export const PERSONA_ARCHETYPES = ["llm-biased", "rule-based", "specialist", "micro"] as const;
+
 export type RuleEvaluator =
   /** Bets opposite of whichever side currently holds the larger pool. */
   | "contrarian"
   /** Copies the side staked by the wallet with the largest individual stake. */
   | "whale-follow";
+
+export const RULE_EVALUATORS = ["contrarian", "whale-follow"] as const;
 
 export interface PersonaSpec {
   /** Lowercase-kebab identifier. Used for env var names and URLs. */
@@ -254,6 +258,109 @@ const LOCAL_PERSONA_REGISTRY: CouncilPersonaRegistryAdapter = {
 
 let personaRegistry: CouncilPersonaRegistryAdapter = LOCAL_PERSONA_REGISTRY;
 
+const KEBAB_CASE = /^[a-z][a-z0-9-]*$/;
+
+function assertNonEmptyString(value: unknown, field: string): void {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`persona field '${field}' must be a non-empty string`);
+  }
+}
+
+function validatePersonaSpec(persona: PersonaSpec, index: number): void {
+  assertNonEmptyString(persona.slug, "slug");
+  if (!KEBAB_CASE.test(persona.slug)) {
+    throw new Error(`persona slug '${persona.slug}' is not kebab-case`);
+  }
+  assertNonEmptyString(persona.displayName, "displayName");
+  assertNonEmptyString(persona.emoji, "emoji");
+  assertNonEmptyString(persona.bio, "bio");
+  assertNonEmptyString(persona.longBio, "longBio");
+
+  if (!PERSONA_ARCHETYPES.includes(persona.archetype)) {
+    throw new Error(`persona '${persona.slug}' has invalid archetype '${persona.archetype}'`);
+  }
+
+  if (persona.promptBias !== undefined && typeof persona.promptBias !== "string") {
+    throw new Error(`persona '${persona.slug}' promptBias must be a string when present`);
+  }
+
+  if (persona.categoryFilter !== undefined) {
+    if (!Array.isArray(persona.categoryFilter) || persona.categoryFilter.length === 0) {
+      throw new Error(`persona '${persona.slug}' categoryFilter must be a non-empty array when present`);
+    }
+    for (const tag of persona.categoryFilter) {
+      if (typeof tag !== "string" || tag.trim() === "") {
+        throw new Error(`persona '${persona.slug}' categoryFilter entries must be non-empty strings`);
+      }
+    }
+  }
+
+  if (persona.ruleEvaluator !== undefined) {
+    if (!RULE_EVALUATORS.includes(persona.ruleEvaluator)) {
+      throw new Error(`persona '${persona.slug}' has invalid ruleEvaluator '${persona.ruleEvaluator}'`);
+    }
+  }
+
+  if (persona.minConfidence !== undefined) {
+    if (!Number.isInteger(persona.minConfidence) || persona.minConfidence < 0 || persona.minConfidence > 100) {
+      throw new Error(`persona '${persona.slug}' minConfidence must be 0..100, got ${persona.minConfidence}`);
+    }
+  }
+
+  if (persona.stakeUsdc !== undefined) {
+    if (typeof persona.stakeUsdc !== "number" || persona.stakeUsdc <= 0) {
+      throw new Error(`persona '${persona.slug}' stakeUsdc must be a positive number, got ${persona.stakeUsdc}`);
+    }
+  }
+
+  const accent = persona.accent;
+  if (!accent || typeof accent !== "object") {
+    throw new Error(`persona '${persona.slug}' accent must be an object`);
+  }
+  for (const key of ["border", "bg", "text", "chip"] as const) {
+    assertNonEmptyString(accent[key], `accent.${key}`);
+  }
+}
+
+function validatePersonaRoster(personas: readonly PersonaSpec[]): void {
+  const slugs = new Set<string>();
+  const emojis = new Set<string>();
+  const displayNames = new Set<string>();
+  const promptBiases = new Set<string>();
+  const archetypes = new Set<PersonaArchetype>();
+
+  for (let i = 0; i < personas.length; i++) {
+    const persona = personas[i];
+    validatePersonaSpec(persona, i);
+
+    if (slugs.has(persona.slug)) {
+      throw new Error(`duplicate council persona slug '${persona.slug}'`);
+    }
+    slugs.add(persona.slug);
+
+    if (emojis.has(persona.emoji)) {
+      throw new Error(`duplicate council persona emoji '${persona.emoji}'`);
+    }
+    emojis.add(persona.emoji);
+
+    if (displayNames.has(persona.displayName)) {
+      throw new Error(`duplicate council persona displayName '${persona.displayName}'`);
+    }
+    displayNames.add(persona.displayName);
+
+    if (persona.promptBias !== undefined) {
+      if (promptBiases.has(persona.promptBias)) {
+        throw new Error(`duplicate council persona promptBias for '${persona.slug}'`);
+      }
+      promptBiases.add(persona.promptBias);
+    }
+
+    archetypes.add(persona.archetype);
+  }
+}
+
+validatePersonaRoster(COUNCIL_PERSONAS);
+
 export function configureCouncilPersonaRegistry(adapter: CouncilPersonaRegistryAdapter): void {
   const personas = [...adapter.listClassicPersonas()];
   const slugs = new Set<string>();
@@ -263,6 +370,7 @@ export function configureCouncilPersonaRegistry(adapter: CouncilPersonaRegistryA
     }
     slugs.add(persona.slug);
   }
+  validatePersonaRoster(personas);
   personaRegistry = adapter;
 }
 

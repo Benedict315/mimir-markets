@@ -27,9 +27,9 @@ import { Keypair } from "@stellar/stellar-sdk";
 import { createClaim } from "../lib/contract";
 import { readAgentBalances, walletFromKeypair } from "../lib/agent-wallets";
 import { requireMarketContractId } from "../lib/stellar";
-import { envValue } from "./lib/stellar-env";
+import { parseSeedAnchor, seedDeadline } from "./lib/seed-claims";
 
-const DRY_RUN             = process.env.DRY_RUN === "1";
+const DRY_RUN             = process.env.DRY_RUN === "1" || process.argv.includes("--dry-run");
 const STAKE_USDC          = 2;
 const SHORT_DEADLINE_SECS = 3600;      // 1h — for claims that resolve immediately
 const MED_DEADLINE_SECS   = 86400;     // 24h
@@ -47,8 +47,12 @@ interface SeedClaim {
   label:           string;
 }
 
-function deadlineAt(secs: number): number {
-  return Math.floor(Date.now() / 1000) + secs;
+function optionValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  if (index < 0) return undefined;
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith("--")) throw new Error(`${name} requires a value`);
+  return value;
 }
 
 const SEED_CLAIMS: SeedClaim[] = [
@@ -214,9 +218,16 @@ const SEED_CLAIMS: SeedClaim[] = [
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  const at = optionValue("--at");
+  if (at !== undefined && !DRY_RUN) {
+    throw new Error("--at is preview-only; live seed deadlines always use the current time");
+  }
+  const anchor = parseSeedAnchor(at);
+
   if (DRY_RUN) {
     console.log("═".repeat(47));
     console.log("  Mimir Seed Claims — DRY RUN (USDC stakes)");
+    console.log(`  Anchor: ${new Date(anchor * 1000).toISOString()}`);
     console.log(`  ${SEED_CLAIMS.length} claims would be created`);
     console.log(`  Each stake: ${STAKE_USDC} USDC`);
     console.log(`  Total USDC needed: ~${SEED_CLAIMS.length * STAKE_USDC} USDC`);
@@ -225,16 +236,16 @@ async function main(): Promise<void> {
       console.log(`${i + 1}. [${c.category.toUpperCase()}] ${c.label}`);
       console.log(`   Q: ${c.question.slice(0, 80)}...`);
       console.log(`   URL: ${c.resolutionUrl}`);
-      console.log(`   Deadline: ${c.deadlineSecs / 3600}h from now\n`);
+      console.log(
+        `   Deadline: ${new Date(seedDeadline(anchor, c.deadlineSecs) * 1000).toISOString()}\n`,
+      );
     });
     return;
   }
 
-  const secret = envValue("CREATOR_SECRET") ?? envValue("STELLAR_DEPLOYER_SECRET");
+  const secret = process.env.CREATOR_SECRET?.trim();
   if (!secret) {
-    console.error(
-      "CREATOR_SECRET (or STELLAR_DEPLOYER_SECRET) is required. Use DRY_RUN=1 to preview.",
-    );
+    console.error("CREATOR_SECRET is required. Use --dry-run to preview without secrets or network access.");
     process.exit(1);
   }
   const wallet = walletFromKeypair(Keypair.fromSecret(secret));
@@ -280,7 +291,7 @@ async function main(): Promise<void> {
         creator_position: seed.creatorPosition,
         counter_position: seed.counterPosition,
         resolution_url:   seed.resolutionUrl,
-        deadline:         deadlineAt(seed.deadlineSecs),
+        deadline:         seedDeadline(anchor, seed.deadlineSecs),
         stake_amount:     STAKE_USDC,
         category:         seed.category,
         market_type:      "binary",

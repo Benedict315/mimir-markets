@@ -46,6 +46,32 @@ export function isDecisiveVerdict(value: unknown): value is DecisiveVerdict {
 // ── Structured LLM payload ────────────────────────────────────────────────────
 
 /**
+ * A verified research citation supporting a verdict.
+ *
+ * Captures the authoritative source, capture time, and cryptographic content
+ * digest. Money amounts and recipient addresses are strictly prohibited to
+ * safeguard funded settlement safety.
+ */
+export interface ResearchCitation {
+  /** The canonical URL of the cited source. Must be a valid http(s) URL. */
+  url: string;
+  /** Host / domain name for provenance display. */
+  domain: string;
+  /** Cryptographic content hash (hex digest) of the cited evidence content. */
+  contentHash: string;
+  /** Capture epoch in milliseconds. */
+  capturedAt: number;
+  /** Optional title of the cited resource. */
+  title?: string;
+  /** Trust tier of the citation. */
+  trustTier?: "primary" | "corroborating" | "unverified";
+  /** Optional brief excerpt or quote from the evidence (capped to safe length). */
+  excerpt?: string;
+  /** Fetcher mechanism that acquired the evidence (e.g. coingecko-api, direct, jina, bot-paid). */
+  fetcher?: string;
+}
+
+/**
  * The exact JSON shape the LLM is asked to produce at every settlement
  * boundary (oracle solo, oracle reference assessment, and council persona
  * votes).  Every consumer that parses LLM text should validate against this
@@ -62,6 +88,8 @@ export interface VerdictPayload {
   confidence:  number;
   /** Human-readable explanation, capped to 500 chars on output. */
   explanation: string;
+  /** Optional research citations backing this verdict. */
+  citations?:  ResearchCitation[];
 }
 
 // ── Validation result ─────────────────────────────────────────────────────────
@@ -80,22 +108,26 @@ export type VerdictParseError = {
    *  invalid-json       — extractJson returned null, or JSON.parse threw.
    *  invalid-verdict    — verdict field present but not a known VERDICTS member.
    *  missing-verdict    — verdict field absent or non-string.
+   *  malformed          — payload shape or citations field violates constraints.
    *  duplicate          — same claim already has a settled on-chain verdict
    *                       (guards the poll loop against double-settlement).
    *  stale              — the claim deadline is in the future; settlement
    *                       was triggered too early.
    *  cancelled          — claim state is "cancelled"; must not be settled.
    *  dependency-failure — a required upstream step (evidence fetch, council
-   *                       quorum, etc.) failed and the oracle cannot proceed
-   *                       without it for this claim.
-   */
+    *                       quorum, etc.) failed and the oracle cannot proceed
+    *                       without it for this claim.
+    *  paused             — claim state is "paused"; must not be settled.
+    */
   reason:
     | "invalid-json"
     | "invalid-verdict"
     | "missing-verdict"
+    | "malformed"
     | "duplicate"
     | "stale"
     | "cancelled"
+    | "paused"
     | "dependency-failure";
   /** Developer-readable detail, never surfaced to end users. */
   detail: string;
@@ -105,6 +137,99 @@ export type VerdictParseResult = VerdictParseOk | VerdictParseError;
 
 // ── Low-level field validators ────────────────────────────────────────────────
 
+export const MAX_VERDICT_CITATIONS = 8;
+export const MAX_CITATION_EXCERPT_CHARS = 500;
+export const MAX_CITATION_TITLE_CHARS = 200;
+
+/**
+ * Validate and sanitize a single ResearchCitation object.
+ * Returns null on invalid format, forbidden protocol, or embedded credentials.
+ */
+export function validateResearchCitation(raw: unknown): ResearchCitation | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+
+  const rawUrl = typeof obj["url"] === "string" ? obj["url"].trim() : "";
+  if (!rawUrl) return null;
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    return null;
+  }
+  // Privacy and credential safety: reject URLs containing basic auth credentials
+  if (parsedUrl.username || parsedUrl.password) {
+    return null;
+  }
+
+  const domain = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
+  if (!domain) return null;
+
+  // Content hash: hex string between 8 and 64 characters
+  const rawHash = typeof obj["contentHash"] === "string" ? obj["contentHash"].trim().toLowerCase() : "";
+  if (!rawHash || !/^[0-9a-f]{8,64}$/.test(rawHash)) {
+    return null;
+  }
+
+  const capturedAt = Number(obj["capturedAt"]);
+  if (!Number.isFinite(capturedAt) || capturedAt <= 0) {
+    return null;
+  }
+
+  const citation: ResearchCitation = {
+    url: parsedUrl.toString(),
+    domain,
+    contentHash: rawHash,
+    capturedAt: Math.floor(capturedAt),
+  };
+
+  if (typeof obj["title"] === "string" && obj["title"].trim()) {
+    citation.title = obj["title"].trim().slice(0, MAX_CITATION_TITLE_CHARS);
+  }
+
+  if (obj["trustTier"] === "primary" || obj["trustTier"] === "corroborating" || obj["trustTier"] === "unverified") {
+    citation.trustTier = obj["trustTier"];
+  }
+
+  if (typeof obj["excerpt"] === "string" && obj["excerpt"].trim()) {
+    citation.excerpt = obj["excerpt"].trim().slice(0, MAX_CITATION_EXCERPT_CHARS);
+  }
+
+  if (typeof obj["fetcher"] === "string" && obj["fetcher"].trim()) {
+    citation.fetcher = obj["fetcher"].trim().slice(0, 50);
+  }
+
+  return citation;
+}
+
+/**
+ * Validate an array of research citations.
+ */
+export function validateCitationsList(
+  raw: unknown,
+): { ok: boolean; citations?: ResearchCitation[]; error?: string } {
+  if (!Array.isArray(raw)) {
+    return { ok: false, error: "'citations' field must be an array." };
+  }
+  if (raw.length > MAX_VERDICT_CITATIONS) {
+    return { ok: false, error: `Exceeded maximum citations limit of ${MAX_VERDICT_CITATIONS}.` };
+  }
+  const citations: ResearchCitation[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const item = raw[i];
+    const validated = validateResearchCitation(item);
+    if (!validated) {
+      return { ok: false, error: `Citation at index ${i} is invalid or malformed.` };
+    }
+    citations.push(validated);
+  }
+  return { ok: true, citations };
+}
+
 /**
  * Validate and normalise a raw parsed object into a `VerdictPayload`.
  *
@@ -112,9 +237,10 @@ export type VerdictParseResult = VerdictParseOk | VerdictParseError;
  * - `confidence` is coerced: string "80" is accepted and rounded; out-of-range
  *   values are clamped to [0, 100].
  * - `explanation` defaults to "" when absent; truncated to 500 chars.
+ * - `citations` is optional; when present it must be valid or returns null.
  *
- * Returns `null` on hard failure (bad verdict string), or the normalised
- * payload on success.
+ * Returns `null` on hard failure (bad verdict string or malformed citations),
+ * or the normalised payload on success.
  */
 export function validateVerdictFields(raw: unknown): VerdictPayload | null {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -136,7 +262,15 @@ export function validateVerdictFields(raw: unknown): VerdictPayload | null {
     ? obj["explanation"].slice(0, 500)
     : "";
 
-  return { verdict: verdictRaw, confidence, explanation };
+  const payload: VerdictPayload = { verdict: verdictRaw, confidence, explanation };
+
+  if ("citations" in obj && obj["citations"] !== undefined && obj["citations"] !== null) {
+    const listRes = validateCitationsList(obj["citations"]);
+    if (!listRes.ok) return null;
+    payload.citations = listRes.citations;
+  }
+
+  return payload;
 }
 
 // ── Settlement-guard helpers ──────────────────────────────────────────────────
@@ -148,7 +282,7 @@ export function validateVerdictFields(raw: unknown): VerdictPayload | null {
  */
 export interface VerdictGuardContext {
   /** Current on-chain state of the claim. */
-  claimState: "open" | "active" | "resolved" | "cancelled";
+  claimState: "open" | "active" | "resolved" | "cancelled" | "paused";
   /** Unix seconds — claim deadline. */
   deadline: number;
   /** Unix seconds — current time (injectable for tests). Defaults to Date.now()/1000. */
@@ -179,6 +313,14 @@ export function checkSettlementGuards(ctx: VerdictGuardContext): VerdictParseErr
       ok: false,
       reason: "duplicate",
       detail: `Claim is already resolved (state='resolved'). Skipping to avoid double-settlement.`,
+    };
+  }
+
+  if (ctx.claimState === "paused") {
+    return {
+      ok: false,
+      reason: "paused",
+      detail: `Claim is in state 'paused' and cannot be settled.`,
     };
   }
 
@@ -261,6 +403,17 @@ export function parseVerdictPayload(
     };
   }
 
+  if ("citations" in obj && obj["citations"] !== undefined && obj["citations"] !== null) {
+    const citationsCheck = validateCitationsList(obj["citations"]);
+    if (!citationsCheck.ok) {
+      return {
+        ok: false,
+        reason: "malformed",
+        detail: citationsCheck.error ?? "Malformed research citations payload.",
+      };
+    }
+  }
+
   const payload = validateVerdictFields(parsed);
   if (!payload) {
     return {
@@ -273,7 +426,7 @@ export function parseVerdictPayload(
   return { ok: true, payload };
 }
 
-// ── Dependency-failure helper ─────────────────────────────────────────────────
+// ── Error constructors ────────────────────────────────────────────────────────
 
 /**
  * Constructs a `VerdictParseError` with reason `"dependency-failure"`.
@@ -286,3 +439,11 @@ export function parseVerdictPayload(
 export function dependencyFailure(detail: string): VerdictParseError {
   return { ok: false, reason: "dependency-failure", detail };
 }
+
+/**
+ * Constructs a `VerdictParseError` with reason `"malformed"`.
+ */
+export function malformedFailure(detail: string): VerdictParseError {
+  return { ok: false, reason: "malformed", detail };
+}
+

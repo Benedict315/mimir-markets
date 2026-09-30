@@ -1,0 +1,166 @@
+{
+  "valid": {
+    "sourceSummary": "The official newsroom lists an upcoming product announcement.",
+    "rejectionReason": null,
+    "candidates": [
+      {
+        "category": "custom",
+        "claimText": "Will Example publish the product announcement by February 1, 2040?",
+        "sideA": "Example publishes the announcement by the deadline",
+        "sideB": "Example does not publish the announcement by the deadline",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 100
+      }
+    ]
+  },
+  "invalid": {
+    "sourceSummary": "Malformed model output.",
+    "rejectionReason": null,
+    "candidates": [
+      {
+        "category": "not-a-category",
+        "claimText": "Short",
+        "sideA": "Same side",
+        "sideB": "Same side",
+        "deadlineAt": "not-a-date",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Too short",
+        "ambiguityFlags": [],
+        "confidenceScore": 101
+      },
+      null
+    ]
+  },
+  "stale": {
+    "sourceSummary": "A candidate at the exact reference time is stale.",
+    "rejectionReason": null,
+    "candidates": [
+      {
+        "category": "custom",
+        "claimText": "Will Example publish a product announcement by the reference time?",
+        "sideA": "Example publishes the announcement",
+        "sideB": "Example does not publish the announcement",
+        "deadlineAt": "2040-01-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 75
+      }
+    ]
+  },
+  "duplicates": {
+    "sourceSummary": "Duplicate claims differ only by letter case.",
+    "rejectionReason": null,
+    "candidates": [
+      {
+        "category": "custom",
+        "claimText": "Will Example publish the product announcement by February 1, 2040?",
+        "sideA": "Example publishes the announcement by the deadline",
+        "sideB": "Example does not publish the announcement by the deadline",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80
+      },
+      {
+        "category": "custom",
+        "claimText": "WILL EXAMPLE PUBLISH THE PRODUCT ANNOUNCEMENT BY FEBRUARY 1, 2040?",
+        "sideA": "Example publishes the announcement by the deadline",
+        "sideB": "Example does not publish the announcement by the deadline",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 90
+      }
+    ]
+  },
+  "overLimit": {
+    "sourceSummary": "Only the first three candidates are in contract.",
+    "rejectionReason": null,
+    "candidates": [
+      {
+        "category": "custom",
+        "claimText": "Will Example publish product update one by February 1, 2040?",
+        "sideA": "Example publishes update one",
+        "sideB": "Example does not publish update one",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80
+      },
+      {
+        "category": "custom",
+        "claimText": "Will Example publish product update two by February 1, 2040?",
+        "sideA": "Example publishes update two",
+        "sideB": "Example does not publish update two",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80
+      },
+      {
+        "category": "custom",
+        "claimText": "Will Example publish product update three by February 1, 2040?",
+        "sideA": "Example publishes update three",
+        "sideB": "Example does not publish update three",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80
+      },
+      {
+        "category": "custom",
+        "claimText": "Will Example publish product update four by February 1, 2040?",
+        "sideA": "Example publishes update four",
+        "sideB": "Example does not publish update four",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80
+      }
+    ]
+  },
+  "sensitiveExtras": {
+    "sourceSummary": "Unknown and private fields must not cross the output boundary.",
+    "rejectionReason": null,
+    "prompt": "Do not copy this prompt to the response.",
+    "analytics": {
+      "userId": "private-user-id"
+    },
+    "candidates": [
+      {
+        "category": "custom",
+        "claimText": "Will Example publish the product announcement by February 1, 2040?",
+        "sideA": "Example publishes the announcement by the deadline",
+        "sideB": "Example does not publish the announcement by the deadline",
+        "deadlineAt": "2040-02-01T00:00:00.000Z",
+        "timezone": "UTC",
+        "primaryResolutionSource": "https://example.com/newsroom",
+        "settlementRule": "Resolve only from the linked official newsroom at the deadline.",
+        "ambiguityFlags": [],
+        "confidenceScore": 80,
+        "walletAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "stakeUsdc": 100,
+        "permissions": ["create", "fund"]
+      }
+    ]
+  }
+}

@@ -92,7 +92,7 @@ test("boundary: stake just below MIN_STAKE is invalid", () => {
 });
 
 test("boundary: past deadline is stale", () => {
-  const customDeadline = new Date(NOW_MS - 60 * 60 * 1000)
+  const customDeadline = new Date(NOW_MS - 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 16);
   const result = validateClaimCreationBeforeSign(

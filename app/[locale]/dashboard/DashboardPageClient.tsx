@@ -27,6 +27,7 @@ import AccountBalances from "@/components/wallet/AccountBalances";
 import DashboardKpiSkeletonRow from "@/components/dashboard/DashboardKpiSkeletonRow";
 import PortfolioPerformancePanel from "@/components/dashboard/PortfolioPerformancePanel";
 import DashboardVSFilterBar from "@/components/dashboard/DashboardVSFilterBar";
+import DashboardPositionsPagination from "@/components/dashboard/DashboardPositionsPagination";
 import CacheFreshnessPill from "@/components/CacheFreshnessPill";
 import StaleIndexWarning from "@/components/StaleIndexWarning";
 import { useDashboardFilterUrlState } from "@/hooks/useDashboardFilterUrlState";
@@ -48,6 +49,9 @@ const filterPillActive = "border-pv-emerald/50 bg-pv-emerald text-pv-bg";
 
 const listItemEase = [0.25, 0.1, 0.25, 1] as const;
 
+/** Page size for the dashboard positions list. Kept small so first paint is fast. */
+const DASHBOARD_POSITIONS_PAGE_SIZE = 10;
+
 export default function DashboardPageClient() {
   const { address, isConnected, isConnecting, connect } = useWallet();
   const [duels, setDuels] = useState<VSData[]>([]);
@@ -57,6 +61,7 @@ export default function DashboardPageClient() {
     null
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const {
     tab,
     setTab,
@@ -150,6 +155,28 @@ export default function DashboardPageClient() {
       }),
     [tabFiltered, categoryFilter, minStakeFilter, searchQuery]
   );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / DASHBOARD_POSITIONS_PAGE_SIZE)
+  );
+  const safePage = Math.min(page, totalPages);
+  const paginated = useMemo(() => {
+    const start = (safePage - 1) * DASHBOARD_POSITIONS_PAGE_SIZE;
+    return filtered.slice(start, start + DASHBOARD_POSITIONS_PAGE_SIZE);
+  }, [filtered, safePage]);
+
+  // Reset to page 1 whenever the filter inputs change so the user never lands
+  // on an out-of-range page after narrowing the result set.
+  useEffect(() => {
+    setPage(1);
+  }, [exposureFilterKey]);
+
+  // Clamp the page if the result set shrinks below the current page (e.g. a
+  // position resolves and drops out of the active tab).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const exposureFilterKey = useMemo(
     () => `${tab}-${searchQuery}-${categoryFilter}-${minStakeFilter}`,
@@ -420,7 +447,7 @@ export default function DashboardPageClient() {
 
       <AnimatedItem>
         <DashboardPortfolioSection
-          filteredVsList={filtered}
+          filteredVsList={paginated}
           showStakeHoldingsMocks={showStakeHoldingsMocks}
           exposureFilterKey={exposureFilterKey}
           onResetFilters={resetFilters}
@@ -446,6 +473,15 @@ export default function DashboardPageClient() {
               onRefresh={() => {
                 void loadDuels({ forceRefresh: true });
               }}
+            />
+          }
+          stakeHoldingsFooterExtra={
+            <DashboardPositionsPagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filtered.length}
+              pageSize={DASHBOARD_POSITIONS_PAGE_SIZE}
+              onPageChange={setPage}
             />
           }
         />

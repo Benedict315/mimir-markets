@@ -33,6 +33,24 @@ async function advanceCursor(
   await setMeta(key, String(newValue));
 }
 
+async function recoverCursor(
+  key: string,
+  fallback: number,
+  getMeta: (key: string) => Promise<string | null>,
+  setMeta: (key: string, value: string) => Promise<void>
+): Promise<number> {
+  const current = await getMeta(key);
+  const validated = validateCursorValue(current, key, "sync-cursor-safety-test");
+  
+  if (validated === null) {
+    console.warn(`Recovering cursor ${key} to fallback value ${fallback}`);
+    await setMeta(key, String(fallback));
+    return fallback;
+  }
+  
+  return validated;
+}
+
 // ── Cursor validation tests ─────────────────────────────────────────────────
 
 test("validateCursorValue accepts valid positive integers", () => {
@@ -119,6 +137,47 @@ test("advanceCursor recovers from corrupted cursor by treating as null", async (
   assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
 });
 
+// ── Cursor recovery tests ───────────────────────────────────────────────────
+
+test("recoverCursor returns current value when valid", async () => {
+  mockSyncMetaStore.clear();
+  await mockSetSyncMeta("test_cursor", "100");
+  
+  const recovered = await recoverCursor("test_cursor", 0, mockGetSyncMeta, mockSetSyncMeta);
+  
+  assert.equal(recovered, 100);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "100"); // Unchanged
+});
+
+test("recoverCursor uses fallback when cursor is null", async () => {
+  mockSyncMetaStore.clear();
+  
+  const recovered = await recoverCursor("test_cursor", 50, mockGetSyncMeta, mockSetSyncMeta);
+  
+  assert.equal(recovered, 50);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "50"); // Set to fallback
+});
+
+test("recoverCursor uses fallback when cursor is corrupted", async () => {
+  mockSyncMetaStore.clear();
+  await mockSetSyncMeta("test_cursor", "corrupted");
+  
+  const recovered = await recoverCursor("test_cursor", 50, mockGetSyncMeta, mockSetSyncMeta);
+  
+  assert.equal(recovered, 50);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "50"); // Set to fallback
+});
+
+test("recoverCursor uses fallback when cursor is negative", async () => {
+  mockSyncMetaStore.clear();
+  await mockSetSyncMeta("test_cursor", "-100");
+  
+  const recovered = await recoverCursor("test_cursor", 50, mockGetSyncMeta, mockSetSyncMeta);
+  
+  assert.equal(recovered, 50);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "50"); // Set to fallback
+});
+
 // ── Integration scenarios ───────────────────────────────────────────────────
 
 test("cursor maintains monotonic increase across multiple updates", async () => {
@@ -142,10 +201,43 @@ test("cursor maintains monotonic increase across multiple updates", async () => 
 test("cursor handles restart from corrupted state", async () => {
   mockSyncMetaStore.clear();
   
-  // Simulate corrupted state - validateCursorValue will reject it
+  // Simulate corrupted state
   await mockSetSyncMeta("test_cursor", "not_a_number");
   
-  // advanceCursor should treat corrupted as null and update to new value
+  // Recovery should fix it
+  const recovered = await recoverCursor("test_cursor", 0, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 0);
+  
+  // Normal operation resumes
+  await advanceCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
+});
+
+test("cursor handles missing cursor with fallback", async () => {
+  mockSyncMetaStore.clear();
+  
+  // No cursor exists
+  const recovered = await recoverCursor("test_cursor", 1000, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 1000);
+  
+  // Subsequent updates work normally
+  await advanceCursor("test_cursor", 1500, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "1500");
+});
+
+test("cursor treats zero as valid but prevents negative rollback", async () => {
+  mockSyncMetaStore.clear();
+  await mockSetSyncMeta("test_cursor", "0");
+  
+  // Should accept 0 as valid
+  const recovered = await recoverCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 0);
+  
+  // Should reject negative rollback from 0
+  await advanceCursor("test_cursor", -1, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "0"); // Still 0
+  
+  // Should accept positive advance from 0
   await advanceCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
   assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
 });
@@ -168,25 +260,28 @@ test("cursor handles whitespace in stored values", async () => {
   mockSyncMetaStore.clear();
   await mockSetSyncMeta("test_cursor", "  100  ");
   
-  // Should reject due to whitespace making it invalid, advanceCursor treats as null
-  await advanceCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
-  assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
+  // Should reject due to whitespace making it invalid
+  const recovered = await recoverCursor("test_cursor", 0, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 0);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "0"); // Set to fallback
 });
 
 test("cursor handles scientific notation as invalid", async () => {
   mockSyncMetaStore.clear();
   await mockSetSyncMeta("test_cursor", "1e2");
   
-  // Should reject as invalid (scientific notation), advanceCursor treats as null
-  await advanceCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
-  assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
+  // Should reject as invalid (scientific notation)
+  const recovered = await recoverCursor("test_cursor", 0, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 0);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "0"); // Set to fallback
 });
 
 test("cursor handles hexadecimal strings as invalid", async () => {
   mockSyncMetaStore.clear();
   await mockSetSyncMeta("test_cursor", "0x64");
   
-  // Should reject as invalid (hexadecimal format), advanceCursor treats as null
-  await advanceCursor("test_cursor", 100, mockGetSyncMeta, mockSetSyncMeta);
-  assert.equal(mockSyncMetaStore.get("test_cursor"), "100");
+  // Should reject as invalid (hexadecimal format)
+  const recovered = await recoverCursor("test_cursor", 0, mockGetSyncMeta, mockSetSyncMeta);
+  assert.equal(recovered, 0);
+  assert.equal(mockSyncMetaStore.get("test_cursor"), "0"); // Set to fallback
 });

@@ -19,6 +19,10 @@
 
 import { getSyncMeta, setSyncMeta, isDbConfigured } from "@/lib/db";
 
+import { pauseEnvKey, pauseState, type Pausable } from "./flags";
+
+import { currentTraceId, endSpan, mintTraceId, runWithTrace, startSpan } from "./trace";
+
 import {
   decodeHeartbeat,
   encodeHeartbeat,
@@ -46,6 +50,9 @@ function windowKey(dependency: TrackedDependency): string {
  * Never throws: a worker must not die because its heartbeat could not be
  * written. A swallowed write shows up as staleness, which is exactly the signal
  * an operator wants anyway.
+ *
+ * The cycle's trace id rides along in the row, so `/api/health` can name the
+ * trace to grep for instead of leaving the operator to reconstruct a window.
  */
 export async function beat(
   worker: MonitoredWorker,
@@ -53,6 +60,7 @@ export async function beat(
 ): Promise<void> {
   if (!isDbConfigured()) return;
   const nowMs = opts.nowMs ?? Date.now();
+  const traceId = currentTraceId();
   try {
     await setSyncMeta(
       heartbeatKeyFor(worker),
@@ -60,6 +68,7 @@ export async function beat(
         atMs: nowMs,
         error: opts.error ? describe(opts.error) : undefined,
         intervalSec: opts.intervalSec,
+        ...(traceId ? { traceId } : {}),
       }),
     );
   } catch (err) {
@@ -73,20 +82,60 @@ export async function beat(
  * Swallows the error like the loops it replaces — a worker must keep polling
  * after a bad cycle — but reports it, so a crash-looping worker shows as alive
  * and failing rather than merely stale.
+ *
+ * `pause` names the incident switch for this worker. A paused worker skips the
+ * cycle but keeps running and beating: exiting would trip `npm run workers`'
+ * --kill-others-on-fail and take every other worker down with it, and a missing
+ * heartbeat would page as a dead worker for what is a deliberate stop.
+ *
+ * Each cycle is one trace. That is the whole correlation contract for a worker:
+ * the id is minted here, stamped on this cycle's spans and log lines, attached to
+ * the web calls the cycle makes (via `outboundTraceHeaders`), and written into the
+ * heartbeat row so `/api/health` can point at it. A cycle is the natural unit —
+ * it is what an operator means by "the run that failed" — and it is bounded, so a
+ * trace never spans a process lifetime.
  */
 export async function reportingPoll(
   worker: MonitoredWorker,
   label: string,
   intervalSec: number,
   poll: () => Promise<unknown>,
+  opts: { pause?: Pausable; env?: Record<string, string | undefined> } = {},
 ): Promise<void> {
-  try {
-    await poll();
-    await beat(worker, { intervalSec });
-  } catch (err) {
-    console.error(`[${label}] poll failed, will retry next interval:`, err);
-    await beat(worker, { error: err, intervalSec });
-  }
+  const traceId = mintTraceId();
+  await runWithTrace({ traceId, source: "generated", worker }, async () => {
+    const span = startSpan(`${worker}.cycle`, {
+      attributes: { worker, interval_sec: intervalSec },
+    });
+
+    if (opts.pause) {
+      const state = pauseState(opts.pause, opts.env);
+      if (state.paused) {
+        const via = state.viaGlobal ? "MIMIR_PAUSE_ALL" : pauseEnvKey(opts.pause);
+        console.warn(
+          `[${label}] ${traceId} paused by ${via}, skipping this cycle${state.reason ? `: ${state.reason}` : ""}`,
+        );
+        // `cancelled`, not `ok`: the cycle produced no work, and a graph that
+        // counted a paused cycle as a successful one would hide an incident.
+        endSpan(span, { status: "cancelled", attributes: { paused_by: via } });
+        await beat(worker, { intervalSec });
+        return;
+      }
+    }
+
+    try {
+      await poll();
+      endSpan(span, { status: "ok" });
+      await beat(worker, { intervalSec });
+    } catch (err) {
+      console.error(
+        `[${label}] ${traceId} poll failed, will retry next interval:`,
+        err,
+      );
+      endSpan(span, { error: err });
+      await beat(worker, { error: err, intervalSec });
+    }
+  });
 }
 
 function describe(error: unknown): string {
@@ -109,6 +158,7 @@ export async function readWorkerBeats(): Promise<WorkerBeat[]> {
         lastBeatAtMs: payload?.atMs ?? null,
         lastError: payload?.error,
         expectedIntervalSec: payload?.intervalSec,
+        lastTraceId: payload?.traceId,
       } satisfies WorkerBeat;
     }),
   );

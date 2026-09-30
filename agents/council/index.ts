@@ -45,6 +45,18 @@ import { readAgentBalances } from "../../lib/agent-wallets";
 import { STELLAR_NETWORK, requireMarketContractId } from "../../lib/stellar";
 import { unitsToUsdc } from "../../lib/usdc";
 import { reportingPoll } from "../../lib/ops/heartbeat";
+import {
+  BackoffError,
+  DependencyFailureError,
+  MalformedInputError,
+  StaleStateError,
+  DuplicateActionError,
+  CancelledByOperatorError,
+  PausedWorkerError,
+  COUNCIL_BACKOFF,
+  describeBackoffError,
+  withBackoff,
+} from "../../lib/ops/backoff-policies";
 import { activeLLMProvider, activeLLMModel, activeLLMKeyFingerprint } from "../../lib/llm";
 import {
   listCouncilPersonas,
@@ -168,8 +180,15 @@ async function poll(): Promise<void> {
   try {
     total = await getClaimCount();
   } catch (err) {
-    console.warn("[council] Failed to read the claim count:", err);
-    return;
+    const depErr = new DependencyFailureError(
+      `Failed to read the claim count: ${err instanceof Error ? err.message : String(err)}`,
+      "rpc",
+      true,
+      0,
+      err,
+    );
+    console.warn(`[council] ${describeBackoffError(depErr)}`);
+    throw depErr;
   }
 
   console.log(
@@ -239,13 +258,19 @@ async function poll(): Promise<void> {
             );
           }
         }
-        const receipt = await runPersonaForClaim(persona, claim, ctx);
+        const receipt = await withBackoff("council", () => runPersonaForClaim(persona, claim, ctx), {
+          policy: COUNCIL_BACKOFF,
+        });
         if (receipt) stakesThisCycle += 1;
       } catch (err) {
-        console.error(
-          `[council:${persona.slug}] error on claim #${claim.id}:`,
-          err instanceof Error ? err.message : err,
-        );
+        if (err instanceof BackoffError) {
+          console.warn(`[council:${persona.slug}] ${describeBackoffError(err)} on claim #${claim.id}`);
+        } else {
+          console.error(
+            `[council:${persona.slug}] error on claim #${claim.id}:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
       }
       if (DECISION_DELAY_MS > 0) {
         await new Promise((resolve) => setTimeout(resolve, DECISION_DELAY_MS));
@@ -296,7 +321,8 @@ async function main(): Promise<void> {
   }
   console.log("═══════════════════════════════════════════════\n");
 
-  const safePoll = () => reportingPoll("council", "council", POLL_INTERVAL_MS / 1000, poll);
+  const safePoll = () =>
+    reportingPoll("council", "council", POLL_INTERVAL_MS / 1000, poll, { pause: "council_worker" });
 
   await safePoll();
   setInterval(safePoll, POLL_INTERVAL_MS);

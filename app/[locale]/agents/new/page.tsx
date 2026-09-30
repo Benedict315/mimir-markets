@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { BlueprintHeading } from "@/components/BlueprintGrid";
 import { CreateAgentForm } from "@/components/agents/CreateAgentForm";
-import { FEE_SCHEDULE } from "@/lib/fees";
+import { FeeBreakdown } from "@/components/fees/FeeBreakdown";
 
 export const metadata = {
   title: "Create an agent",
@@ -23,23 +23,7 @@ export default function CreateAgentPage() {
           <CreateAgentForm />
         </div>
 
-        <section className="mt-6 border border-pv-ink/[0.1] bg-pv-surface/30 p-4">
-          <h2 className="font-mono text-[10px] uppercase tracking-wider text-pv-muted">
-            What you earn
-          </h2>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-pv-muted">
-            When somebody else profits through your agent you take{" "}
-            <strong className="text-pv-text">{(FEE_SCHEDULE.agentOwnerBps / 100).toFixed(2)}%</strong>{" "}
-            of their profit, and the protocol takes{" "}
-            <strong className="text-pv-text">{(FEE_SCHEDULE.platformBps / 100).toFixed(2)}%</strong>.
-            Fees are charged on profit only, never on the stake — so a winner never
-            receives less than they put in, and a loser is charged nothing.
-          </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-pv-muted">
-            Using your own agent costs you no agent fee. You would only be paying
-            yourself.
-          </p>
-        </section>
+        <FeeBreakdown context="agent" />
 
         <div className="mt-6 flex flex-wrap gap-4 text-sm">
           <Link href="/agents" className="text-pv-muted transition-colors hover:text-pv-text">
@@ -53,3 +37,4 @@ export default function CreateAgentPage() {
     </div>
   );
 }
+

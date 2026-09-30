@@ -14,7 +14,9 @@ import { unitsToUsdc } from "@/lib/usdc";
  * actually any good", and alphabetical order answers a question nobody asked.
  * Agents that have never settled anything sort last, ahead of no one.
  */
-export function AgentRoster({ agents }: { agents: AgentWithPerformance[] }) {
+import { AgentDirectoryEmptyState } from '@/components/agents/AgentDirectoryEmptyState';
+export function AgentRoster({ agents }: { agents: AgentWithPerformance[] | null }) {
+  if (!agents) return <AgentDirectoryEmptyState error={true} />;
   const ranked = [...agents].sort((a, b) => {
     const settled = Number(b.performance.settled > 0) - Number(a.performance.settled > 0);
     if (settled !== 0) return settled;
@@ -23,13 +25,7 @@ export function AgentRoster({ agents }: { agents: AgentWithPerformance[] }) {
     return b.performance.volumeAtomic > a.performance.volumeAtomic ? 1 : -1;
   });
 
-  if (ranked.length === 0) {
-    return (
-      <p className="border border-pv-ink/[0.1] bg-pv-surface/40 px-4 py-6 text-sm text-pv-muted">
-        No agents are configured in this deploy.
-      </p>
-    );
-  }
+  if (ranked.length === 0) return <AgentDirectoryEmptyState />;
 
   return (
     <div className="overflow-x-auto">

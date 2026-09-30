@@ -15,6 +15,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { paidRoute, queryParam } from "@/lib/x402/server";
+import { tracedRoute } from "@/lib/ops/trace-http";
 import type { HTTPRequestContext } from "@x402/core/http";
 import { PRICES } from "@/lib/x402/config";
 import { getPersonaBySlug } from "@/agents/council/personas";
@@ -132,4 +133,8 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 }
 
 // Dynamic payTo: each juror is paid into its own wallet.
-export const GET = paidRoute("councilVote", handler, { payTo: personaAddress });
+//
+// `tracedRoute` is the outermost wrapper, so a 402 that never reached the handler
+// is still traced: the oracle's buy-a-vote cycle and the web request it made share
+// one id, and the response carries it. See docs/TRACE_CORRELATION.md.
+export const GET = tracedRoute("api.council.vote", paidRoute("councilVote", handler, { payTo: personaAddress }));

@@ -7,9 +7,10 @@ import {
   sanitizeGeneratedDrafts,
 } from "../../lib/server/source-claim-generator";
 
-/** Keep fixtures ahead of "now" so deadline filters don't false-reject. */
+const TEST_NOW = Date.parse("2040-01-01T00:00:00.000Z");
+
 function futureDeadlineIso(daysFromNow = 30): string {
-  return new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString();
+  return new Date(TEST_NOW + daysFromNow * 24 * 60 * 60 * 1000).toISOString();
 }
 
 test("blocks unsupported social source hosts", () => {
@@ -28,6 +29,7 @@ test("sanitizeGeneratedDrafts keeps valid unique candidates only", () => {
   const result = sanitizeGeneratedDrafts({
     sourceUrl: "https://openai.com/index/update",
     sourceType: "official",
+    now: TEST_NOW,
     payload: {
       sourceSummary: "OpenAI published a future launch update.",
       candidates: [
@@ -69,6 +71,7 @@ test("sanitizeGeneratedDrafts rejects short-window relative change claims", () =
   const result = sanitizeGeneratedDrafts({
     sourceUrl: "https://www.accuweather.com/es/ar/buenos-aires/7894/10-day-weather-forecast/7894",
     sourceType: "media",
+    now: TEST_NOW,
     payload: {
       sourceSummary: "Forecast page for Buenos Aires.",
       candidates: [
@@ -102,6 +105,7 @@ test("sanitizeGeneratedDrafts keeps deadline-based event claims even with time w
   const result = sanitizeGeneratedDrafts({
     sourceUrl: "https://apple.com/newsroom",
     sourceType: "official",
+    now: TEST_NOW,
     payload: {
       sourceSummary: "Apple newsroom updates.",
       candidates: [

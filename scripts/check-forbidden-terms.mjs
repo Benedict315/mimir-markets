@@ -48,7 +48,10 @@ const SKIP_FILES = new Set([
   "scripts/check-forbidden-terms.mjs",
   "lib/xmtp/identity.ts",
   "tests/node/x402-fixtures.ts",
-  "tests/node/security-headers.test.ts"
+  "tests/node/security-headers.test.ts",
+  // rollback.test.ts uses dummy all-A Stellar seeds to test the redaction
+  // logic itself — these are not real credentials.
+  "tests/node/rollback.test.ts"
 ]);
 
 const files = execSync("git ls-files", { encoding: "utf8" })

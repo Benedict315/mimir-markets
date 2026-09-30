@@ -9,12 +9,14 @@ import {
   type DashboardFilterUrlState,
   type DashboardUrlTab,
 } from "@/lib/dashboardUrlState";
+import { clampDashboardPage } from "@/lib/dashboardUiPolicy";
 
 /**
  * Filtros del dashboard en cliente + URL vía `history.replaceState` (mismo criterio que Explore:
  * sin `router.replace` para evitar re-fetch de RSC).
  *
  * - Navegación con URL completa / atrás-adelante: `useSearchParams` o `popstate` alinean estado.
+ * - La página (`page`) es base 1 y se clampea al rango válido al escribir la URL.
  */
 export function useDashboardFilterUrlState() {
   const searchParams = useSearchParams();
@@ -39,7 +41,8 @@ export function useDashboardFilterUrlState() {
   const setTab = useCallback(
     (tab: DashboardUrlTab) => {
       setState((prev) => {
-        const next = { ...prev, tab };
+        // Cambio de pestaña reseta la página para no perder filas en el nuevo conjunto.
+        const next = { ...prev, tab, page: 1 };
         commitUrl(next);
         return next;
       });
@@ -50,7 +53,7 @@ export function useDashboardFilterUrlState() {
   const setSearchQuery = useCallback(
     (search: string) => {
       setState((prev) => {
-        const next = { ...prev, search };
+        const next = { ...prev, search, page: 1 };
         commitUrl(next);
         return next;
       });
@@ -61,7 +64,7 @@ export function useDashboardFilterUrlState() {
   const setCategoryFilter = useCallback(
     (cat: string) => {
       setState((prev) => {
-        const next = { ...prev, cat };
+        const next = { ...prev, cat, page: 1 };
         commitUrl(next);
         return next;
       });
@@ -72,9 +75,27 @@ export function useDashboardFilterUrlState() {
   const setMinStakeFilter = useCallback(
     (minStake: number) => {
       setState((prev) => {
-        const next = { ...prev, minStake };
+        const next = { ...prev, minStake, page: 1 };
         commitUrl(next);
         return next;
+      });
+    },
+    [commitUrl]
+  );
+
+  /**
+   * Actualiza la página de la lista. Acepta número o una función reducer para
+   * permitir prev/next sin conocer el estado actual en el llamador.
+   */
+  const setPage = useCallback(
+    (next: number | ((prev: number) => number)) => {
+      setState((prev) => {
+        const raw = typeof next === "function" ? next(prev.page) : next;
+        const page = clampDashboardPage(raw);
+        if (page === prev.page) return prev;
+        const updated = { ...prev, page };
+        commitUrl(updated);
+        return updated;
       });
     },
     [commitUrl]
@@ -110,6 +131,8 @@ export function useDashboardFilterUrlState() {
     setCategoryFilter,
     minStakeFilter: state.minStake,
     setMinStakeFilter,
+    page: state.page,
+    setPage,
     resetFilters,
   };
 }

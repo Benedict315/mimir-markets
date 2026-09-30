@@ -6,6 +6,8 @@ export const CLAIM_DRAFT_CATEGORY_IDS = [
   "custom",
 ] as const;
 
+export const CLAIM_DRAFT_MAX_CANDIDATES = 3;
+
 export type ClaimDraftCategory = (typeof CLAIM_DRAFT_CATEGORY_IDS)[number];
 
 export const CLAIM_DRAFT_SOURCE_TYPES = ["official", "media", "other"] as const;

@@ -11,6 +11,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { paidRoute, queryParam } from "@/lib/x402/server";
+import { tracedRoute } from "@/lib/ops/trace-http";
 import type { HTTPRequestContext } from "@x402/core/http";
 import { PRICES } from "@/lib/x402/config";
 import { verifyPass } from "@/lib/paid-pass";
@@ -132,8 +133,12 @@ Write one tight paragraph (max 90 words): which side you lean toward and your ho
 }
 
 // Dynamic payTo: each persona is paid into its own wallet. A council pass
-// bypasses the paywall entirely.
-export const GET = paidRoute("councilReasoning", handler, {
-  payTo: personaAddress,
-  skipPayment: hasCouncilPass,
-});
+// bypasses the paywall entirely. Wrapped so a pass-holder's read and a
+// paid read are both traceable — see docs/TRACE_CORRELATION.md.
+export const GET = tracedRoute(
+  "api.council.reasoning",
+  paidRoute("councilReasoning", handler, {
+    payTo: personaAddress,
+    skipPayment: hasCouncilPass,
+  }),
+);

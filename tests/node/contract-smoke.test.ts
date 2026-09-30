@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -6,8 +8,10 @@ import {
   isVSJoinable,
   isVSPrivate,
   mapClaimToVS,
+  VS_CHALLENGE_LOCK_SECONDS,
   type ClaimData,
 } from "../../lib/contract";
+import { CHALLENGE_LOCK_SECONDS as SCRIPT_CHALLENGE_LOCK_SECONDS } from "../../scripts/lib/stellar-env";
 
 // Real `G…` strkeys. Case matters: `isSameAddress` in lib/contract.ts compares
 // exactly, because base32 strkeys are case-sensitive and the EVM
@@ -139,5 +143,99 @@ test("address comparison is exact, so a case-folded strkey is a different party"
     isVSJoinable(vs, CREATOR.toLowerCase()),
     true,
     "a lowercased strkey is a different string, and is treated as a stranger",
+  );
+});
+
+// ── Challenge lock window, at the boundary second ─────────────────────────────
+//
+// `challenge_claim` refuses a challenge that would land inside the anti-sniping
+// window (contracts-soroban/mimir-market/src/claims.rs):
+//
+//     now + CHALLENGE_LOCK_SECONDS > deadline  ->  Error::ChallengeWindowClosed
+//
+// The comparison is strict, so the last ledger second a challenge is accepted in
+// is exactly `deadline - CHALLENGE_LOCK_SECONDS`. `isVSJoinable` mirrors that
+// comparison for the UI, and these tests pin the mirror to the same second.
+// `contracts-soroban/mimir-market/src/test_challenge_lock.rs` asserts the same
+// edges on chain, against the real contract.
+
+/**
+ * Freeze the clock for the duration of `fn`. The guard reads `Date.now()`
+ * itself, so a test that computed `NOW` and then let the real clock tick past
+ * the boundary second could fail for a reason that has nothing to do with the
+ * rule under test.
+ */
+function atSecond<T>(seconds: number, fn: () => T): T {
+  const real = Date.now;
+  Date.now = () => seconds * 1000;
+  try {
+    return fn();
+  } finally {
+    Date.now = real;
+  }
+}
+
+/** Any fixed second: only differences against `deadline` matter here. */
+const NOW = 1_800_000_000;
+
+test("isVSJoinable accepts the last second of the lock window and refuses the next", () => {
+  // now + lock == deadline is still accepted, exactly as on chain.
+  const onBoundary = mapClaimToVS(makeClaim({ deadline: NOW + VS_CHALLENGE_LOCK_SECONDS }));
+  assert.equal(atSecond(NOW, () => isVSJoinable(onBoundary, OUTSIDER)), true);
+
+  // One second later the same market is closed to new challengers.
+  assert.equal(atSecond(NOW + 1, () => isVSJoinable(onBoundary, OUTSIDER)), false);
+
+  // And so is a market whose window closed a second earlier than that.
+  const inside = mapClaimToVS(makeClaim({ deadline: NOW + VS_CHALLENGE_LOCK_SECONDS - 1 }));
+  assert.equal(atSecond(NOW, () => isVSJoinable(inside, OUTSIDER)), false);
+});
+
+test("a market with exactly the lock window to live is joinable for one second", () => {
+  // The tightest market a challenge can still reach: joinable in the second it
+  // was created and in no other.
+  const vs = mapClaimToVS(makeClaim({ deadline: NOW + VS_CHALLENGE_LOCK_SECONDS }));
+
+  assert.equal(atSecond(NOW, () => isVSJoinable(vs, OUTSIDER)), true);
+  assert.equal(atSecond(NOW + 1, () => isVSJoinable(vs, OUTSIDER)), false);
+});
+
+test("a market shorter than the lock window is never joinable", () => {
+  // Born with one second of life: the window is empty for its whole life,
+  // including its first second and its last.
+  const vs = mapClaimToVS(makeClaim({ deadline: NOW + 1 }));
+
+  assert.equal(atSecond(NOW, () => isVSJoinable(vs, OUTSIDER)), false);
+  assert.equal(atSecond(NOW + 1, () => isVSJoinable(vs, OUTSIDER)), false);
+});
+
+test("a market with no deadline is not gated by the lock window", () => {
+  // `deadline === 0` marks a market that carries no deadline at all, so there is
+  // no window to close. On chain a deadline is mandatory, so this branch only
+  // exists for off-chain rows.
+  const vs = mapClaimToVS(makeClaim({ deadline: 0 }));
+
+  assert.equal(atSecond(NOW, () => isVSJoinable(vs, OUTSIDER)), true);
+});
+
+test("the lock window constant is mirrored from the contract, not guessed", () => {
+  // Three copies of this number exist (Rust, lib/contract.ts, scripts/lib), and
+  // the off-chain copies are only correct while they equal the contract's.
+  const typesRs = readFileSync(
+    join(process.cwd(), "contracts-soroban", "mimir-market", "src", "types.rs"),
+    "utf8",
+  );
+  const declared = /pub const CHALLENGE_LOCK_SECONDS: u64 = (\d+);/.exec(typesRs);
+  assert.ok(declared, "types.rs must declare CHALLENGE_LOCK_SECONDS");
+
+  assert.equal(
+    Number(declared[1]),
+    VS_CHALLENGE_LOCK_SECONDS,
+    "lib/contract.ts::VS_CHALLENGE_LOCK_SECONDS must mirror types.rs",
+  );
+  assert.equal(
+    Number(declared[1]),
+    SCRIPT_CHALLENGE_LOCK_SECONDS,
+    "scripts/lib/stellar-env.ts::CHALLENGE_LOCK_SECONDS must mirror types.rs",
   );
 });

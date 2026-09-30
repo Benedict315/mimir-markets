@@ -89,6 +89,10 @@ export const STELLAR_NETWORK = publicEnv("network") ?? "testnet";
 export const NETWORK_PASSPHRASE =
   publicEnv("networkPassphrase") ?? "Test SDF Network ; September 2015";
 
+export function validateNetworkPassphrase() {
+  if (!NETWORK_PASSPHRASE) throw new Error("Network passphrase is required");
+}
+
 const DEFAULT_RPC_URL = "https://soroban-testnet.stellar.org";
 const DEFAULT_HORIZON_URL = "https://horizon-testnet.stellar.org";
 
@@ -554,3 +558,4 @@ export function stroopsToXlm(stroops: bigint | number | string): number {
 export function formatXlmAmount(stroops: bigint | number | string, decimals = 5): string {
   return `${stroopsToXlm(stroops).toFixed(decimals)} XLM`;
 }
+

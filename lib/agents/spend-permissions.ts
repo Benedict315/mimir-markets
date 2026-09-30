@@ -286,32 +286,37 @@ export function parseSpendPermissionGrant(args: {
   const periodSeconds = asSeconds(grant.period);
   if (!periodSeconds) return { ok: false, error: "period must be positive seconds" };
   const startAt = asSeconds(grant.start);
+  if (startAt === null) return { ok: false, error: "start must be a valid timestamp" };
   const endAt = asSeconds(grant.end);
-  if (startAt === null || endAt === null) return { ok: false, error: "start and end must be unix seconds" };
-  if (endAt <= startAt) return { ok: false, error: "end must follow start" };
-  if (endAt * 1000 <= now) return { ok: false, error: "permission has already expired" };
+  if (endAt === null) return { ok: false, error: "end must be a valid timestamp" };
+  if (endAt <= startAt) return { ok: false, error: "end must be after start" };
 
-  // Base64 as SEP-43 returns it. The bytes are verified against `account` by
-  // `verifyAgentSignature`; this only rejects an obviously non-signature.
-  const signature = typeof grant.signature === "string" && /^[A-Za-z0-9+/]{16,}={0,2}$/.test(grant.signature.trim())
-    ? grant.signature.trim() : null;
-  if (!signature) return { ok: false, error: "owner signature is required" };
-
-  const salt = asBigInt(grant.salt)?.toString() ?? "0";
+  const expirationLedger = asBigInt(grant.expirationLedger);
+  const salt = typeof grant.salt === "string" ? grant.salt.trim() : crypto.randomUUID();
   const extraData = typeof grant.extraData === "string" ? grant.extraData : "";
-  const expirationLedger = asSeconds(grant.expirationLedger) ?? undefined;
+  const signature = typeof grant.signature === "string" ? grant.signature : "";
+  const permissionJson = typeof grant.permission === "string" ? grant.permission : JSON.stringify({
+    account, spender: grantSpender, token, allowance: allowanceAtomic.toString(),
+    period: periodSeconds, start: startAt, end: endAt, salt, extraData,
+  });
 
-  return {
-    ok: true,
-    record: {
-      permissionHash: permissionKey({ account, spender: grantSpender, token, allowanceAtomic, periodSeconds, startAt, endAt, salt }),
-      agentId, account, spender: grantSpender, token, allowanceAtomic, periodSeconds,
-      startAt, endAt, salt, extraData, signature,
-      ...(expirationLedger !== undefined ? { expirationLedger } : {}),
-      // Stored verbatim: a re-verification has to hash the object the owner
-      // actually signed, not one we rebuilt from parsed parts.
-      permissionJson: JSON.stringify(grant.permission ?? grant),
-      createdAt: now,
-    },
+  const record: SpendPermissionRecord = {
+    permissionHash: permissionKey({ account, spender: grantSpender, token, allowanceAtomic, periodSeconds, startAt, endAt, salt }),
+    agentId,
+    account,
+    spender: grantSpender,
+    token,
+    allowanceAtomic,
+    periodSeconds,
+    startAt,
+    endAt,
+    expirationLedger: expirationLedger ? Number(expirationLedger) : undefined,
+    salt,
+    extraData,
+    signature,
+    permissionJson,
+    createdAt: now,
   };
+
+  return { ok: true, record };
 }
